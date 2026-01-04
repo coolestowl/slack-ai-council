@@ -143,5 +143,45 @@ class TestAdapterStructure(unittest.TestCase):
                 OpenAIAdapter()
 
 
+class TestOpenAIParameterUpdate(unittest.TestCase):
+    """Test OpenAI API parameter compatibility"""
+    
+    @patch.dict(os.environ, {'OPENAI_API_KEY': 'test-key'})
+    def test_openai_uses_max_completion_tokens(self):
+        """Test that OpenAI adapter uses max_completion_tokens parameter for GPT-5.2"""
+        from llm_manager import OpenAIAdapter
+        from unittest.mock import AsyncMock, MagicMock, patch
+        import asyncio
+        
+        async def run_test():
+            adapter = OpenAIAdapter()
+            
+            # Mock the OpenAI client
+            mock_response = MagicMock()
+            mock_response.choices = [MagicMock()]
+            mock_response.choices[0].message.content = "Test response"
+            
+            mock_client = MagicMock()
+            mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+            
+            # Patch AsyncOpenAI from the openai module, not llm_manager
+            with patch('openai.AsyncOpenAI', return_value=mock_client):
+                messages = [{"role": "user", "content": "Hello"}]
+                result = await adapter.generate_response(messages)
+                
+                # Verify the correct parameter was used
+                mock_client.chat.completions.create.assert_called_once()
+                call_kwargs = mock_client.chat.completions.create.call_args[1]
+                
+                # Assert max_completion_tokens is used, not max_tokens
+                self.assertIn('max_completion_tokens', call_kwargs)
+                self.assertNotIn('max_tokens', call_kwargs)
+                self.assertEqual(call_kwargs['max_completion_tokens'], 1000)
+                self.assertEqual(result, "Test response")
+        
+        # Run the async test
+        asyncio.run(run_test())
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -7,11 +7,19 @@ ensuring each model only sees:
 2. Its own previous responses (not responses from other AI models)
 """
 
+import re
 from typing import List, Dict, Any
 
 
 class ContextFilter:
     """Filter message history for context isolation between AI models"""
+    
+    # Compiled regex pattern for removing Slack mentions at the beginning of text
+    # Matches format: <@USERID> where USERID can contain word characters (letters, digits, underscores)
+    # The ^ anchor ensures we only match mentions at the start of the text
+    # Note: Slack user IDs are typically uppercase alphanumeric (e.g., U12345, USLACKBOT)
+    # but we use \w+ to be slightly more permissive for edge cases
+    MENTION_PATTERN = re.compile(r'^<@\w+>\s*')
     
     def __init__(self, bot_user_id: str, llm_manager=None):
         """
@@ -31,6 +39,27 @@ class ContextFilter:
             # This is mainly for backward compatibility and testing
             self.model_usernames = {}
     
+    def remove_bot_mention(self, text: str) -> str:
+        """
+        Remove any user mention from the beginning of message text
+        
+        Slack mentions look like "<@U12345>" where U12345 is the user ID.
+        This method removes any mention from the beginning of the text, which
+        is typically the bot's mention when triggered via @mention.
+        
+        Mentions in the middle or end of the text are preserved.
+        
+        Args:
+            text: Original message text that may contain a mention
+        
+        Returns:
+            Text with leading mention removed
+        """
+        # Remove mentions (format: <@USERID>) from the beginning of text only
+        # The ^ anchor ensures we only match at the start
+        cleaned_text = self.MENTION_PATTERN.sub('', text).strip()
+        return cleaned_text
+    
     def filter_messages_for_model(
         self,
         messages: List[Dict[str, Any]],
@@ -43,6 +72,7 @@ class ContextFilter:
         - Include all user messages (non-bot messages)
         - Include only the target model's own previous responses
         - Exclude other AI models' responses
+        - Remove bot mentions from user messages
         
         Args:
             messages: List of Slack message objects from thread history
@@ -73,10 +103,11 @@ class ContextFilter:
                         "content": text
                     })
             else:
-                # Include all user messages
+                # Include all user messages, but remove bot mentions
+                cleaned_text = self.remove_bot_mention(text)
                 filtered_messages.append({
                     "role": "user",
-                    "content": text
+                    "content": cleaned_text
                 })
         
         return filtered_messages
@@ -89,11 +120,11 @@ class ContextFilter:
             messages: List of Slack message objects
         
         Returns:
-            The first user message text (the original question)
+            The first user message text (the original question) with mentions removed
         """
         for msg in messages:
             if "text" in msg and not msg.get("bot_id"):
-                return msg["text"]
+                return self.remove_bot_mention(msg["text"])
         return ""
     
     def is_bot_message(self, message: Dict[str, Any]) -> bool:

@@ -7,6 +7,7 @@ ensuring each model only sees:
 2. Its own previous responses (not responses from other AI models)
 """
 
+import re
 from typing import List, Dict, Any
 
 
@@ -31,6 +32,24 @@ class ContextFilter:
             # This is mainly for backward compatibility and testing
             self.model_usernames = {}
     
+    def remove_bot_mention(self, text: str) -> str:
+        """
+        Remove bot mention from message text
+        
+        Slack mentions look like "<@U12345>" where U12345 is the user ID.
+        This method removes the bot's mention from the beginning of the text.
+        
+        Args:
+            text: Original message text that may contain bot mention
+        
+        Returns:
+            Text with bot mention removed
+        """
+        # Remove bot mentions (format: <@USERID>) from the beginning of text
+        # Use count=1 to only remove the first mention
+        cleaned_text = re.sub(r'<@[A-Z0-9]+>\s*', '', text, count=1).strip()
+        return cleaned_text
+    
     def filter_messages_for_model(
         self,
         messages: List[Dict[str, Any]],
@@ -43,6 +62,7 @@ class ContextFilter:
         - Include all user messages (non-bot messages)
         - Include only the target model's own previous responses
         - Exclude other AI models' responses
+        - Remove bot mentions from user messages
         
         Args:
             messages: List of Slack message objects from thread history
@@ -73,10 +93,11 @@ class ContextFilter:
                         "content": text
                     })
             else:
-                # Include all user messages
+                # Include all user messages, but remove bot mentions
+                cleaned_text = self.remove_bot_mention(text)
                 filtered_messages.append({
                     "role": "user",
-                    "content": text
+                    "content": cleaned_text
                 })
         
         return filtered_messages

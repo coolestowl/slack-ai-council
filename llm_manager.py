@@ -84,7 +84,7 @@ class OpenAIAdapter(LLMAdapter):
                 model=self.model_name,
                 messages=messages,
                 temperature=0.7,
-                max_tokens=1000
+                max_completion_tokens=1000
             )
             
             return response.choices[0].message.content

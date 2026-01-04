@@ -73,7 +73,7 @@ async def send_model_response(
     response_text: str
 ):
     """
-    Send a response to Slack with custom username and icon
+    Send a response to Slack with custom username and icon, plus a follow-up button
     
     Args:
         channel: Channel ID
@@ -83,10 +83,38 @@ async def send_model_response(
     """
     try:
         display_config = adapter.get_display_config()
+        
+        # Create blocks with response text and follow-up button
+        blocks = [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": response_text
+                }
+            },
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "text": f"追问 {display_config['username']}",
+                            "emoji": True
+                        },
+                        "action_id": f"followup_{adapter.adapter_key}",
+                        "value": f"{channel}|{thread_ts}"
+                    }
+                ]
+            }
+        ]
+        
         await app.client.chat_postMessage(
             channel=channel,
             thread_ts=thread_ts,
-            text=response_text,
+            text=response_text,  # Fallback text for notifications
+            blocks=blocks,
             username=display_config["username"],
             icon_emoji=display_config["icon_emoji"]
         )
@@ -245,6 +273,146 @@ async def handle_request_by_mode(request_mode: str, channel: str, thread_ts: str
         await handle_compare_mode(channel, thread_ts, thread_messages)
     elif request_mode == "debate":
         await handle_debate_mode(channel, thread_ts, thread_messages)
+
+
+@app.action(re.compile(r"^followup_.*"))
+async def handle_followup_button(ack, body, client):
+    """
+    Handle follow-up button clicks
+    
+    Args:
+        ack: Acknowledge function
+        body: Request body
+        client: Slack client
+    """
+    await ack()
+    
+    try:
+        # Extract action information
+        action = body["actions"][0]
+        action_id = action["action_id"]
+        value = action["value"]  # Format: "channel|thread_ts"
+        
+        # Parse model key from action_id (format: "followup_modelkey")
+        model_key = action_id.replace("followup_", "")
+        
+        # Parse channel and thread_ts from value
+        channel, thread_ts = value.split("|")
+        
+        # Get the adapter for this model
+        adapter = llm_manager.get_adapter(model_key)
+        
+        # Open modal for follow-up question
+        await client.views_open(
+            trigger_id=body["trigger_id"],
+            view={
+                "type": "modal",
+                "callback_id": f"followup_modal_{model_key}",
+                "title": {
+                    "type": "plain_text",
+                    "text": f"追问 {adapter.username}"
+                },
+                "submit": {
+                    "type": "plain_text",
+                    "text": "提交"
+                },
+                "close": {
+                    "type": "plain_text",
+                    "text": "取消"
+                },
+                "blocks": [
+                    {
+                        "type": "input",
+                        "block_id": "question_block",
+                        "element": {
+                            "type": "plain_text_input",
+                            "action_id": "question_input",
+                            "multiline": True,
+                            "placeholder": {
+                                "type": "plain_text",
+                                "text": f"输入你想追问 {adapter.username} 的问题..."
+                            }
+                        },
+                        "label": {
+                            "type": "plain_text",
+                            "text": "你的问题"
+                        }
+                    },
+                    {
+                        "type": "context",
+                        "elements": [
+                            {
+                                "type": "mrkdwn",
+                                "text": f"此问题将只由 *{adapter.username}* 回答"
+                            }
+                        ]
+                    }
+                ],
+                "private_metadata": f"{channel}|{thread_ts}|{model_key}"
+            }
+        )
+    except Exception as e:
+        print(f"Error in handle_followup_button: {e}")
+
+
+@app.view(re.compile(r"^followup_modal_.*"))
+async def handle_followup_modal_submission(ack, body, client, view):
+    """
+    Handle follow-up modal submission
+    
+    Args:
+        ack: Acknowledge function
+        body: Request body
+        client: Slack client
+        view: View payload
+    """
+    await ack()
+    
+    try:
+        # Extract the question from modal input
+        question = view["state"]["values"]["question_block"]["question_input"]["value"]
+        
+        # Parse metadata (format: "channel|thread_ts|model_key")
+        metadata = view["private_metadata"]
+        channel, thread_ts, model_key = metadata.split("|")
+        
+        # Get user info
+        user_id = body["user"]["id"]
+        
+        # Post the follow-up question to the thread (for visibility)
+        await client.chat_postMessage(
+            channel=channel,
+            thread_ts=thread_ts,
+            text=f"<@{user_id}> 追问: {question}"
+        )
+        
+        # Get the adapter for this model
+        adapter = llm_manager.get_adapter(model_key)
+        
+        # Fetch thread messages including the new question
+        thread_messages = await fetch_thread_messages(channel, thread_ts)
+        
+        # Process the follow-up with only the specified model
+        await process_model_response(
+            adapter,
+            channel,
+            thread_ts,
+            thread_messages,
+            "compare"  # Use compare mode for context isolation
+        )
+        
+    except Exception as e:
+        print(f"Error in handle_followup_modal_submission: {e}")
+        # Try to send error message to thread if possible
+        try:
+            if 'channel' in locals() and 'thread_ts' in locals():
+                await client.chat_postMessage(
+                    channel=channel,
+                    thread_ts=thread_ts,
+                    text=f"处理追问时出错: {str(e)}"
+                )
+        except:
+            pass
 
 
 @app.event("app_mention")

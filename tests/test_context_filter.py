@@ -66,6 +66,21 @@ class TestContextFilter(unittest.TestCase):
         self.assertEqual(result[1]["role"], "user")
         self.assertEqual(result[1]["content"], "Explain ML")
     
+    def test_remove_bot_mention_with_underscore(self):
+        """Test that bot mentions with underscores in IDs are removed"""
+        messages = [
+            {"text": "<@U_12345> What is AI?", "user": "U123"},
+            {"text": "<@Bot_ID_123> Tell me more", "user": "U456"}
+        ]
+        
+        result = self.filter.filter_messages_for_model(messages, "GPT-4o")
+        
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0]["role"], "user")
+        self.assertEqual(result[0]["content"], "What is AI?")
+        self.assertEqual(result[1]["role"], "user")
+        self.assertEqual(result[1]["content"], "Tell me more")
+    
     def test_remove_bot_mention_with_mode(self):
         """Test that bot mentions are removed even with inline mode specification"""
         messages = [

@@ -209,6 +209,45 @@ async def handle_debate_mode(
         )
 
 
+def determine_request_mode(text: str) -> str:
+    """
+    Determine the operation mode for a request
+    
+    Args:
+        text: Message text (already cleaned, without bot mentions)
+    
+    Returns:
+        Mode string ("compare" or "debate")
+    """
+    # Check for inline mode specification (e.g., "mode=debate What is AI?")
+    inline_mode = ModeCommand.extract_inline_mode(text)
+    
+    if inline_mode:
+        # Use inline specified mode for this request only
+        mode = inline_mode["mode"]
+        print(f"Using inline mode '{mode}' for this request")
+        return mode
+    else:
+        # Use the current global mode
+        return mode_manager.get_mode().value
+
+
+async def handle_request_by_mode(request_mode: str, channel: str, thread_ts: str, thread_messages: List[Dict[str, Any]]):
+    """
+    Handle request based on the specified mode
+    
+    Args:
+        request_mode: Mode to use ("compare" or "debate")
+        channel: Channel ID
+        thread_ts: Thread timestamp
+        thread_messages: List of thread messages
+    """
+    if request_mode == "compare":
+        await handle_compare_mode(channel, thread_ts, thread_messages)
+    elif request_mode == "debate":
+        await handle_debate_mode(channel, thread_ts, thread_messages)
+
+
 @app.event("app_mention")
 async def handle_app_mention(event, say):
     """
@@ -245,27 +284,14 @@ async def handle_app_mention(event, say):
                 )
             return
         
-        # Check for inline mode specification (e.g., "mode=debate What is AI?")
-        inline_mode = ModeCommand.extract_inline_mode(text_without_mention)
-        
         # Determine which mode to use for this request
-        if inline_mode:
-            # Use inline specified mode for this request only
-            request_mode = inline_mode["mode"]
-            # Note: We don't change the global mode, just use it for this request
-            print(f"Using inline mode '{request_mode}' for this request")
-        else:
-            # Use the current global mode
-            request_mode = mode_manager.get_mode().value
+        request_mode = determine_request_mode(text_without_mention)
         
         # Fetch thread messages
         thread_messages = await fetch_thread_messages(channel, thread_ts)
         
         # Handle based on the determined mode
-        if request_mode == "compare":
-            await handle_compare_mode(channel, thread_ts, thread_messages)
-        elif request_mode == "debate":
-            await handle_debate_mode(channel, thread_ts, thread_messages)
+        await handle_request_by_mode(request_mode, channel, thread_ts, thread_messages)
     
     except Exception as e:
         print(f"Error in handle_app_mention: {e}")
@@ -315,26 +341,14 @@ async def handle_message(event, say):
                 )
             return
         
-        # Check for inline mode specification (e.g., "mode=debate What is AI?")
-        inline_mode = ModeCommand.extract_inline_mode(text)
-        
         # Determine which mode to use for this request
-        if inline_mode:
-            # Use inline specified mode for this request only
-            request_mode = inline_mode["mode"]
-            print(f"Using inline mode '{request_mode}' for this request")
-        else:
-            # Use the current global mode
-            request_mode = mode_manager.get_mode().value
+        request_mode = determine_request_mode(text)
         
         # Fetch thread messages
         thread_messages = await fetch_thread_messages(channel, thread_ts)
         
         # Handle based on the determined mode
-        if request_mode == "compare":
-            await handle_compare_mode(channel, thread_ts, thread_messages)
-        elif request_mode == "debate":
-            await handle_debate_mode(channel, thread_ts, thread_messages)
+        await handle_request_by_mode(request_mode, channel, thread_ts, thread_messages)
     
     except Exception as e:
         print(f"Error in handle_message: {e}")

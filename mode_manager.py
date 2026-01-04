@@ -6,6 +6,7 @@ This module manages the operation mode of the AI Council:
 - Debate Mode: AI models respond sequentially, seeing each other's responses
 """
 
+import re
 from enum import Enum
 from typing import List, Dict, Any
 
@@ -158,17 +159,14 @@ class ModeCommand:
         Returns:
             Dictionary with 'mode' and 'question' keys, or empty dict if no inline mode
         """
-        import re
-        
-        # Match "mode=compare" or "mode=debate" at the start of the message
+        # Match "mode=compare" or "mode=debate" at the start of the message (case insensitive)
+        # Apply to original text to preserve case in question
         pattern = r'^mode=(compare|debate)\s+(.*)'
-        match = re.match(pattern, text.lower().strip())
+        match = re.match(pattern, text.strip(), re.IGNORECASE)
         
         if match:
-            mode = match.group(1)
-            # Extract the original question with preserved case from original text
-            question_match = re.search(r'mode=(?:compare|debate)\s+(.*)', text.strip(), re.IGNORECASE)
-            question = question_match.group(1) if question_match else match.group(2)
+            mode = match.group(1).lower()  # Normalize mode to lowercase
+            question = match.group(2)  # Preserve original case in question
             
             return {
                 "mode": mode,

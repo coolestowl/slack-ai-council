@@ -118,11 +118,11 @@ class ContextFilter:
             messages: List of Slack message objects
         
         Returns:
-            The first user message text (the original question)
+            The first user message text (the original question) with mentions removed
         """
         for msg in messages:
             if "text" in msg and not msg.get("bot_id"):
-                return msg["text"]
+                return self.remove_bot_mention(msg["text"])
         return ""
     
     def is_bot_message(self, message: Dict[str, Any]) -> bool:

@@ -168,6 +168,17 @@ class TestContextFilter(unittest.TestCase):
         
         self.assertEqual(question, "What's the best programming language?")
     
+    def test_extract_user_question_with_mention(self):
+        """Test extracting the user question with mention removed"""
+        messages = [
+            {"text": "<@BOT123> What's the best programming language?", "user": "U123"},
+            {"text": "Python is great", "bot_id": "B123", "username": "GPT-4o"}
+        ]
+        
+        question = self.filter.extract_user_question(messages)
+        
+        self.assertEqual(question, "What's the best programming language?")
+    
     def test_is_bot_message(self):
         """Test bot message detection"""
         bot_msg = {"text": "Hello", "bot_id": "B123"}

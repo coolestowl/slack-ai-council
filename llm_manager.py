@@ -110,16 +110,19 @@ class GeminiAdapter(LLMAdapter):
     async def generate_response(self, messages: List[Dict[str, str]]) -> str:
         """Generate response using Google Gemini API"""
         try:
-            import google.generativeai as genai
+            from google import genai
             
-            genai.configure(api_key=self.api_key)
-            model = genai.GenerativeModel(self.model_name)
+            # Create async client
+            client = genai.Client(api_key=self.api_key)
             
             # Convert messages to Gemini format
             prompt = self._convert_messages_to_prompt(messages)
             
-            # Generate response
-            response = await model.generate_content_async(prompt)
+            # Generate response using async API
+            response = await client.aio.models.generate_content(
+                model=self.model_name,
+                contents=prompt
+            )
             
             return response.text
         except Exception as e:

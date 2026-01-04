@@ -4,7 +4,7 @@ slack-sdk>=3.23.0
 
 # AI Model APIs
 openai>=1.3.0
-google-generativeai>=0.3.0
+google-genai>=1.0.0
 
 # Environment Management
 python-dotenv>=1.0.0

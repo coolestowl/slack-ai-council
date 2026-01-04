@@ -3,7 +3,7 @@ LLM Manager - Adapter Pattern for Multiple AI Models
 
 This module provides a unified interface for interacting with different AI models:
 - OpenAI (GPT-5.2)
-- Google Gemini (2.5 Pro)
+- Google Gemini (3 Flash Preview)
 - X.AI (Grok 3)
 - ByteDance (Doubao Seed 1.8)
 """
@@ -93,14 +93,14 @@ class OpenAIAdapter(LLMAdapter):
 
 
 class GeminiAdapter(LLMAdapter):
-    """Adapter for Google Gemini API (2.5 Pro)"""
+    """Adapter for Google Gemini API (3 Flash Preview)"""
     
     adapter_key = "gemini"
     
     def __init__(self):
         super().__init__(
-            model_name="gemini-2.5-pro",
-            username="Gemini-2.5-Pro",
+            model_name="gemini-3-flash-preview",
+            username="Gemini-3-Flash-Preview",
             icon_emoji=":gem:"
         )
         self.api_key = os.getenv("GOOGLE_API_KEY")

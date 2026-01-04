@@ -2,10 +2,10 @@
 LLM Manager - Adapter Pattern for Multiple AI Models
 
 This module provides a unified interface for interacting with different AI models:
-- OpenAI (GPT-4o)
-- Google Gemini (2.0 Flash)
-- X.AI (Grok 2)
-- ByteDance (Doubao)
+- OpenAI (GPT-5.2)
+- Google Gemini (2.5 Pro)
+- X.AI (Grok 3)
+- ByteDance (Doubao Seed 1.8)
 """
 
 import os
@@ -60,14 +60,14 @@ class LLMAdapter(ABC):
 
 
 class OpenAIAdapter(LLMAdapter):
-    """Adapter for OpenAI API (GPT-4o or newer)"""
+    """Adapter for OpenAI API (GPT-5.2)"""
     
     adapter_key = "openai"
     
     def __init__(self):
         super().__init__(
-            model_name="gpt-4o",  # Using latest stable GPT-4o
-            username="GPT-4o",
+            model_name="gpt-5.2",  # Using latest GPT-5.2
+            username="GPT-5.2",
             icon_emoji=":robot_face:"
         )
         self.api_key = os.getenv("OPENAI_API_KEY")
@@ -93,14 +93,14 @@ class OpenAIAdapter(LLMAdapter):
 
 
 class GeminiAdapter(LLMAdapter):
-    """Adapter for Google Gemini API (2.0 Flash)"""
+    """Adapter for Google Gemini API (2.5 Pro)"""
     
     adapter_key = "gemini"
     
     def __init__(self):
         super().__init__(
-            model_name="gemini-2.0-flash-exp",
-            username="Gemini-2.0-Flash",
+            model_name="gemini-2.5-pro",
+            username="Gemini-2.5-Pro",
             icon_emoji=":gem:"
         )
         self.api_key = os.getenv("GOOGLE_API_KEY")
@@ -141,14 +141,14 @@ class GeminiAdapter(LLMAdapter):
 
 
 class GrokAdapter(LLMAdapter):
-    """Adapter for X.AI Grok API (Grok 2)"""
+    """Adapter for X.AI Grok API (Grok 3)"""
     
     adapter_key = "grok"
     
     def __init__(self):
         super().__init__(
-            model_name="grok-2-latest",  # Using latest Grok 2 model
-            username="Grok-2",
+            model_name="grok-3",  # Using latest Grok 3 model
+            username="Grok-3",
             icon_emoji=":lightning:"
         )
         self.api_key = os.getenv("XAI_API_KEY")
@@ -186,14 +186,14 @@ class GrokAdapter(LLMAdapter):
 
 
 class DoubaoAdapter(LLMAdapter):
-    """Adapter for ByteDance Doubao API"""
+    """Adapter for ByteDance Doubao API (Seed 1.8)"""
     
     adapter_key = "doubao"
     
     def __init__(self):
         super().__init__(
-            model_name="doubao-pro-32k",  # Using latest Doubao model
-            username="Doubao",
+            model_name="doubao-seed-1-8-251215",  # Using Doubao Seed 1.8 model
+            username="Doubao-Seed-1.8",
             icon_emoji=":coffee:"
         )
         self.api_key = os.getenv("DOUBAO_API_KEY")

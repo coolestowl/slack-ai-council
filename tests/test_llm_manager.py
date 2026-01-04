@@ -50,7 +50,7 @@ class TestLLMManager(unittest.TestCase):
         adapter = manager.get_adapter("openai")
         
         self.assertIsNotNone(adapter)
-        self.assertEqual(adapter.username, "GPT-4o")
+        self.assertEqual(adapter.username, "GPT-5.2")
     
     @patch.dict(os.environ, {'OPENAI_API_KEY': 'test-key'})
     def test_get_nonexistent_adapter(self):
@@ -84,7 +84,7 @@ class TestLLMManager(unittest.TestCase):
         
         self.assertIn("username", config)
         self.assertIn("icon_emoji", config)
-        self.assertEqual(config["username"], "GPT-4o")
+        self.assertEqual(config["username"], "GPT-5.2")
 
 
 class TestAdapterStructure(unittest.TestCase):
@@ -97,8 +97,8 @@ class TestAdapterStructure(unittest.TestCase):
         
         adapter = OpenAIAdapter()
         
-        self.assertEqual(adapter.model_name, "gpt-4o")
-        self.assertEqual(adapter.username, "GPT-4o")
+        self.assertEqual(adapter.model_name, "gpt-5.2")
+        self.assertEqual(adapter.username, "GPT-5.2")
         self.assertEqual(adapter.icon_emoji, ":robot_face:")
     
     @patch.dict(os.environ, {'GOOGLE_API_KEY': 'test-key'})
@@ -108,8 +108,8 @@ class TestAdapterStructure(unittest.TestCase):
         
         adapter = GeminiAdapter()
         
-        self.assertEqual(adapter.model_name, "gemini-2.0-flash-exp")
-        self.assertEqual(adapter.username, "Gemini-2.0-Flash")
+        self.assertEqual(adapter.model_name, "gemini-2.5-pro")
+        self.assertEqual(adapter.username, "Gemini-2.5-Pro")
         self.assertEqual(adapter.icon_emoji, ":gem:")
     
     @patch.dict(os.environ, {'XAI_API_KEY': 'test-key'})
@@ -119,8 +119,8 @@ class TestAdapterStructure(unittest.TestCase):
         
         adapter = GrokAdapter()
         
-        self.assertEqual(adapter.model_name, "grok-2-latest")
-        self.assertEqual(adapter.username, "Grok-2")
+        self.assertEqual(adapter.model_name, "grok-3")
+        self.assertEqual(adapter.username, "Grok-3")
         self.assertEqual(adapter.icon_emoji, ":lightning:")
     
     @patch.dict(os.environ, {'DOUBAO_API_KEY': 'test-key'})
@@ -130,8 +130,8 @@ class TestAdapterStructure(unittest.TestCase):
         
         adapter = DoubaoAdapter()
         
-        self.assertEqual(adapter.model_name, "doubao-pro-32k")
-        self.assertEqual(adapter.username, "Doubao")
+        self.assertEqual(adapter.model_name, "doubao-seed-1-8-251215")
+        self.assertEqual(adapter.username, "Doubao-Seed-1.8")
         self.assertEqual(adapter.icon_emoji, ":coffee:")
     
     def test_adapter_missing_key(self):

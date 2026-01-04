@@ -15,8 +15,10 @@ class ContextFilter:
     """Filter message history for context isolation between AI models"""
     
     # Compiled regex pattern for removing Slack mentions at the beginning of text
-    # Matches format: <@USERID> where USERID can contain letters, digits, and underscores
+    # Matches format: <@USERID> where USERID can contain word characters (letters, digits, underscores)
     # The ^ anchor ensures we only match mentions at the start of the text
+    # Note: Slack user IDs are typically uppercase alphanumeric (e.g., U12345, USLACKBOT)
+    # but we use \w+ to be slightly more permissive for edge cases
     MENTION_PATTERN = re.compile(r'^<@\w+>\s*')
     
     def __init__(self, bot_user_id: str, llm_manager=None):

@@ -16,7 +16,7 @@ from slack_bolt.adapter.socket_mode.async_handler import AsyncSocketModeHandler
 
 from llm_manager import LLMManager, LLMAdapter
 from context_filter import ContextFilter, create_default_system_prompt
-from mode_manager import ModeManager, ModeCommand
+from mode_manager import ModeCommand
 
 # Load environment variables
 load_dotenv()
@@ -26,7 +26,6 @@ app = AsyncApp(token=os.getenv("SLACK_BOT_TOKEN"))
 
 # Initialize managers
 llm_manager = LLMManager()
-mode_manager = ModeManager(default_mode=os.getenv("DEFAULT_MODE", "compare"))
 context_filter = None  # Will be initialized after getting bot user ID
 
 
@@ -217,19 +216,19 @@ def determine_request_mode(text: str) -> str:
         text: Message text (already cleaned, without bot mentions)
     
     Returns:
-        Mode string ("compare" or "debate")
+        Mode string ("compare" or "debate"), defaults to "compare"
     """
     # Check for inline mode specification (e.g., "mode=debate What is AI?")
     inline_mode = ModeCommand.extract_inline_mode(text)
     
     if inline_mode:
-        # Use inline specified mode for this request only
+        # Use inline specified mode for this request
         mode = inline_mode["mode"]
         print(f"Using inline mode '{mode}' for this request")
         return mode
     else:
-        # Use the current global mode
-        return mode_manager.get_mode().value
+        # Default to compare mode
+        return "compare"
 
 
 async def handle_request_by_mode(request_mode: str, channel: str, thread_ts: str, thread_messages: List[Dict[str, Any]]):
@@ -266,25 +265,7 @@ async def handle_app_mention(event, say):
         # Slack mentions look like "<@U12345> message text"
         text_without_mention = re.sub(r'<@[A-Z0-9]+>\s*', '', text, count=1).strip()
         
-        # Check if this is a mode command
-        command = ModeCommand.parse_command(text_without_mention)
-        
-        if command:
-            if command["command"] == "set_mode":
-                new_mode = command["mode"]
-                mode_manager.set_mode(new_mode)
-                await say(
-                    text=f"✓ Mode changed to: {new_mode.upper()}\n{mode_manager.get_mode_description()}",
-                    thread_ts=thread_ts
-                )
-            elif command["command"] == "get_mode":
-                await say(
-                    text=f"Current mode: {mode_manager.get_mode().value.upper()}\n{mode_manager.get_mode_description()}",
-                    thread_ts=thread_ts
-                )
-            return
-        
-        # Determine which mode to use for this request
+        # Determine which mode to use for this request (compare by default)
         request_mode = determine_request_mode(text_without_mention)
         
         # Fetch thread messages
@@ -301,63 +282,6 @@ async def handle_app_mention(event, say):
         )
 
 
-@app.event("message")
-async def handle_message(event, say):
-    """
-    Handle direct messages to the bot
-    
-    Args:
-        event: Event data from Slack
-        say: Function to send a message
-    """
-    # Skip bot messages to avoid loops
-    if event.get("bot_id"):
-        return
-    
-    # Skip if message is in a channel (only handle DMs)
-    if event.get("channel_type") != "im":
-        return
-    
-    try:
-        channel = event["channel"]
-        thread_ts = event.get("thread_ts", event["ts"])
-        text = event.get("text", "")
-        
-        # Check if this is a mode command
-        command = ModeCommand.parse_command(text)
-        
-        if command:
-            if command["command"] == "set_mode":
-                new_mode = command["mode"]
-                mode_manager.set_mode(new_mode)
-                await say(
-                    text=f"✓ Mode changed to: {new_mode.upper()}\n{mode_manager.get_mode_description()}",
-                    thread_ts=thread_ts
-                )
-            elif command["command"] == "get_mode":
-                await say(
-                    text=f"Current mode: {mode_manager.get_mode().value.upper()}\n{mode_manager.get_mode_description()}",
-                    thread_ts=thread_ts
-                )
-            return
-        
-        # Determine which mode to use for this request
-        request_mode = determine_request_mode(text)
-        
-        # Fetch thread messages
-        thread_messages = await fetch_thread_messages(channel, thread_ts)
-        
-        # Handle based on the determined mode
-        await handle_request_by_mode(request_mode, channel, thread_ts, thread_messages)
-    
-    except Exception as e:
-        print(f"Error in handle_message: {e}")
-        await say(
-            text=f"Error processing request: {str(e)}",
-            thread_ts=event.get("thread_ts", event["ts"])
-        )
-
-
 async def main():
     """Main function to start the bot"""
     # Initialize context filter
@@ -368,8 +292,8 @@ async def main():
     print("Slack AI Council Bot Starting")
     print("="*50)
     print(f"Configured AI Models: {', '.join(llm_manager.get_adapter_names())}")
-    print(f"Default Mode: {mode_manager.get_mode().value.upper()}")
-    print(f"Mode Description: {mode_manager.get_mode_description()}")
+    print(f"Default Mode: COMPARE")
+    print(f"Use 'mode=debate' inline to switch to debate mode for individual requests")
     print("="*50 + "\n")
     
     # Start Socket Mode handler

@@ -154,43 +154,31 @@ Mode Description: Compare Mode: All AI models respond concurrently
 
 ## 💬 Usage
 
-### Mention the Bot in a Channel
+### Basic Usage - Mention the Bot
 
 ```
 @AI Council What's the best approach to learn machine learning?
 ```
 
-All configured AI models will respond in a thread with their perspectives.
+All configured AI models will respond in a thread with their perspectives using **Compare mode** (concurrent responses, default).
 
 ### Inline Mode Specification
 
-You can specify the mode for a single request inline with your question:
+Specify debate mode for sequential AI responses:
 
 ```
 @AI Council mode=debate What is the future of artificial intelligence?
 ```
 
-This will use debate mode for this specific request only, without changing the global mode. The default mode (compare) is used when no inline mode is specified.
-
-### Direct Message
-
-Send a DM to the bot with your question, and it will respond with all AI models. You can also use inline mode specification in DMs:
+Or explicitly use compare mode:
 
 ```
-mode=compare Explain quantum computing
+@AI Council mode=compare Explain quantum computing
 ```
 
-### Mode Commands
-
-Change the global operation mode:
-
-```
-/mode compare   # Switch to Compare mode (default)
-/mode debate    # Switch to Debate mode
-/mode status    # Check current mode
-```
-
-**Note**: Mode commands change the global mode for all subsequent requests, while inline mode specification (`mode=debate question`) only affects that specific request.
+**Modes:**
+- **Compare mode** (default): All AI models respond concurrently, each seeing only user messages and their own history
+- **Debate mode**: AI models respond sequentially, seeing all previous responses
 
 ## 🔧 Extending the Bot
 

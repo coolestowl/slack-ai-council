@@ -7,6 +7,7 @@ multi-perspective responses in Slack threads.
 """
 
 import os
+import re
 import asyncio
 from typing import List, Dict, Any
 from dotenv import load_dotenv
@@ -222,8 +223,12 @@ async def handle_app_mention(event, say):
         thread_ts = event.get("thread_ts", event["ts"])
         text = event.get("text", "")
         
+        # Remove bot mention from text for parsing
+        # Slack mentions look like "<@U12345> message text"
+        text_without_mention = re.sub(r'<@[A-Z0-9]+>\s*', '', text, count=1).strip()
+        
         # Check if this is a mode command
-        command = ModeCommand.parse_command(text)
+        command = ModeCommand.parse_command(text_without_mention)
         
         if command:
             if command["command"] == "set_mode":
@@ -240,13 +245,26 @@ async def handle_app_mention(event, say):
                 )
             return
         
+        # Check for inline mode specification (e.g., "mode=debate What is AI?")
+        inline_mode = ModeCommand.extract_inline_mode(text_without_mention)
+        
+        # Determine which mode to use for this request
+        if inline_mode:
+            # Use inline specified mode for this request only
+            request_mode = inline_mode["mode"]
+            # Note: We don't change the global mode, just use it for this request
+            print(f"Using inline mode '{request_mode}' for this request")
+        else:
+            # Use the current global mode
+            request_mode = mode_manager.get_mode().value
+        
         # Fetch thread messages
         thread_messages = await fetch_thread_messages(channel, thread_ts)
         
-        # Handle based on current mode
-        if mode_manager.is_compare_mode():
+        # Handle based on the determined mode
+        if request_mode == "compare":
             await handle_compare_mode(channel, thread_ts, thread_messages)
-        elif mode_manager.is_debate_mode():
+        elif request_mode == "debate":
             await handle_debate_mode(channel, thread_ts, thread_messages)
     
     except Exception as e:
@@ -297,13 +315,25 @@ async def handle_message(event, say):
                 )
             return
         
+        # Check for inline mode specification (e.g., "mode=debate What is AI?")
+        inline_mode = ModeCommand.extract_inline_mode(text)
+        
+        # Determine which mode to use for this request
+        if inline_mode:
+            # Use inline specified mode for this request only
+            request_mode = inline_mode["mode"]
+            print(f"Using inline mode '{request_mode}' for this request")
+        else:
+            # Use the current global mode
+            request_mode = mode_manager.get_mode().value
+        
         # Fetch thread messages
         thread_messages = await fetch_thread_messages(channel, thread_ts)
         
-        # Handle based on current mode
-        if mode_manager.is_compare_mode():
+        # Handle based on the determined mode
+        if request_mode == "compare":
             await handle_compare_mode(channel, thread_ts, thread_messages)
-        elif mode_manager.is_debate_mode():
+        elif request_mode == "debate":
             await handle_debate_mode(channel, thread_ts, thread_messages)
     
     except Exception as e:

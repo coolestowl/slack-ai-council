@@ -144,3 +144,35 @@ class ModeCommand:
     def is_mode_command(text: str) -> bool:
         """Check if text is a mode command"""
         return text.lower().strip().startswith("/mode")
+    
+    @staticmethod
+    def extract_inline_mode(text: str) -> Dict[str, Any]:
+        """
+        Extract inline mode specification from message text
+        
+        Supports format: "mode=debate your question here" or "mode=compare your question"
+        
+        Args:
+            text: Message text from user
+        
+        Returns:
+            Dictionary with 'mode' and 'question' keys, or empty dict if no inline mode
+        """
+        import re
+        
+        # Match "mode=compare" or "mode=debate" at the start of the message
+        pattern = r'^mode=(compare|debate)\s+(.*)'
+        match = re.match(pattern, text.lower().strip())
+        
+        if match:
+            mode = match.group(1)
+            # Extract the original question with preserved case from original text
+            question_match = re.search(r'mode=(?:compare|debate)\s+(.*)', text.strip(), re.IGNORECASE)
+            question = question_match.group(1) if question_match else match.group(2)
+            
+            return {
+                "mode": mode,
+                "question": question
+            }
+        
+        return {}

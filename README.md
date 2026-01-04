@@ -162,19 +162,35 @@ Mode Description: Compare Mode: All AI models respond concurrently
 
 All configured AI models will respond in a thread with their perspectives.
 
+### Inline Mode Specification
+
+You can specify the mode for a single request inline with your question:
+
+```
+@AI Council mode=debate What is the future of artificial intelligence?
+```
+
+This will use debate mode for this specific request only, without changing the global mode. The default mode (compare) is used when no inline mode is specified.
+
 ### Direct Message
 
-Send a DM to the bot with your question, and it will respond with all AI models.
+Send a DM to the bot with your question, and it will respond with all AI models. You can also use inline mode specification in DMs:
+
+```
+mode=compare Explain quantum computing
+```
 
 ### Mode Commands
 
-Change operation mode:
+Change the global operation mode:
 
 ```
-/mode compare   # Switch to Compare mode
+/mode compare   # Switch to Compare mode (default)
 /mode debate    # Switch to Debate mode
 /mode status    # Check current mode
 ```
+
+**Note**: Mode commands change the global mode for all subsequent requests, while inline mode specification (`mode=debate question`) only affects that specific request.
 
 ## 🔧 Extending the Bot
 

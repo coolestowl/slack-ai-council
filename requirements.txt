@@ -1,0 +1,20 @@
+# Slack Bot Framework
+slack-bolt>=1.18.0
+slack-sdk>=3.23.0
+
+# AI Model APIs
+openai>=1.3.0
+google-generativeai>=0.3.0
+
+# Environment Management
+python-dotenv>=1.0.0
+
+# Async Support
+aiohttp>=3.9.0
+
+# Utilities
+requests>=2.31.0
+
+# Testing (optional)
+pytest>=7.4.0
+pytest-asyncio>=0.21.0

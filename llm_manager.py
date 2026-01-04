@@ -1,0 +1,238 @@
+"""
+LLM Manager - Adapter Pattern for Multiple AI Models
+
+This module provides a unified interface for interacting with different AI models:
+- OpenAI (GPT-4o)
+- Google Gemini (1.5 Pro)
+- X.AI (Grok-1)
+"""
+
+import os
+from abc import ABC, abstractmethod
+from typing import List, Dict, Any
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+
+class LLMAdapter(ABC):
+    """Abstract base class for LLM adapters"""
+    
+    def __init__(self, model_name: str, username: str, icon_emoji: str):
+        """
+        Initialize LLM adapter
+        
+        Args:
+            model_name: Name of the model (e.g., "gpt-4o", "gemini-1.5-pro")
+            username: Display name for Slack messages
+            icon_emoji: Emoji icon for Slack messages
+        """
+        self.model_name = model_name
+        self.username = username
+        self.icon_emoji = icon_emoji
+    
+    @abstractmethod
+    async def generate_response(self, messages: List[Dict[str, str]]) -> str:
+        """
+        Generate a response from the AI model
+        
+        Args:
+            messages: List of message dictionaries with 'role' and 'content'
+        
+        Returns:
+            Generated response text
+        """
+        pass
+    
+    def get_display_config(self) -> Dict[str, str]:
+        """Get Slack display configuration for this model"""
+        return {
+            "username": self.username,
+            "icon_emoji": self.icon_emoji
+        }
+
+
+class OpenAIAdapter(LLMAdapter):
+    """Adapter for OpenAI API (GPT-4o)"""
+    
+    def __init__(self):
+        super().__init__(
+            model_name="gpt-4o",
+            username="GPT-4o",
+            icon_emoji=":robot_face:"
+        )
+        self.api_key = os.getenv("OPENAI_API_KEY")
+        if not self.api_key:
+            raise ValueError("OPENAI_API_KEY not found in environment variables")
+    
+    async def generate_response(self, messages: List[Dict[str, str]]) -> str:
+        """Generate response using OpenAI API"""
+        try:
+            from openai import AsyncOpenAI
+            client = AsyncOpenAI(api_key=self.api_key)
+            
+            response = await client.chat.completions.create(
+                model=self.model_name,
+                messages=messages,
+                temperature=0.7,
+                max_tokens=1000
+            )
+            
+            return response.choices[0].message.content
+        except Exception as e:
+            return f"Error generating response from {self.username}: {str(e)}"
+
+
+class GeminiAdapter(LLMAdapter):
+    """Adapter for Google Gemini API (1.5 Pro)"""
+    
+    def __init__(self):
+        super().__init__(
+            model_name="gemini-1.5-pro",
+            username="Gemini-1.5-Pro",
+            icon_emoji=":gem:"
+        )
+        self.api_key = os.getenv("GOOGLE_API_KEY")
+        if not self.api_key:
+            raise ValueError("GOOGLE_API_KEY not found in environment variables")
+    
+    async def generate_response(self, messages: List[Dict[str, str]]) -> str:
+        """Generate response using Google Gemini API"""
+        try:
+            import google.generativeai as genai
+            
+            genai.configure(api_key=self.api_key)
+            model = genai.GenerativeModel(self.model_name)
+            
+            # Convert messages to Gemini format
+            prompt = self._convert_messages_to_prompt(messages)
+            
+            # Generate response
+            response = await model.generate_content_async(prompt)
+            
+            return response.text
+        except Exception as e:
+            return f"Error generating response from {self.username}: {str(e)}"
+    
+    def _convert_messages_to_prompt(self, messages: List[Dict[str, str]]) -> str:
+        """Convert chat messages to a single prompt for Gemini"""
+        prompt_parts = []
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if role == "system":
+                prompt_parts.append(f"System: {content}")
+            elif role == "user":
+                prompt_parts.append(f"User: {content}")
+            elif role == "assistant":
+                prompt_parts.append(f"Assistant: {content}")
+        return "\n\n".join(prompt_parts)
+
+
+class GrokAdapter(LLMAdapter):
+    """Adapter for X.AI Grok API"""
+    
+    def __init__(self):
+        super().__init__(
+            model_name="grok-beta",  # Using grok-beta as per X.AI API
+            username="Grok",
+            icon_emoji=":lightning:"
+        )
+        self.api_key = os.getenv("XAI_API_KEY")
+        if not self.api_key:
+            raise ValueError("XAI_API_KEY not found in environment variables")
+    
+    async def generate_response(self, messages: List[Dict[str, str]]) -> str:
+        """Generate response using X.AI Grok API"""
+        try:
+            import aiohttp
+            
+            # X.AI uses OpenAI-compatible API
+            url = "https://api.x.ai/v1/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": self.model_name,
+                "messages": messages,
+                "temperature": 0.7,
+                "max_tokens": 1000
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers=headers, json=payload) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return data["choices"][0]["message"]["content"]
+                    else:
+                        error_text = await response.text()
+                        return f"Error from {self.username}: HTTP {response.status} - {error_text}"
+        except Exception as e:
+            return f"Error generating response from {self.username}: {str(e)}"
+
+
+class LLMManager:
+    """Manager class to handle multiple LLM adapters"""
+    
+    def __init__(self):
+        """Initialize LLM manager with available adapters"""
+        self.adapters: Dict[str, LLMAdapter] = {}
+        self._initialize_adapters()
+    
+    def _initialize_adapters(self):
+        """Initialize all available LLM adapters"""
+        adapters_to_init = [
+            ("openai", OpenAIAdapter),
+            ("gemini", GeminiAdapter),
+            ("grok", GrokAdapter)
+        ]
+        
+        for name, adapter_class in adapters_to_init:
+            try:
+                self.adapters[name] = adapter_class()
+                print(f"✓ Initialized {name} adapter")
+            except ValueError as e:
+                print(f"✗ Skipping {name} adapter: {e}")
+            except Exception as e:
+                print(f"✗ Error initializing {name} adapter: {e}")
+    
+    def get_adapter(self, model_name: str) -> LLMAdapter:
+        """
+        Get an LLM adapter by name
+        
+        Args:
+            model_name: Name of the model ("openai", "gemini", "grok")
+        
+        Returns:
+            LLMAdapter instance
+        
+        Raises:
+            KeyError: If adapter not found
+        """
+        if model_name not in self.adapters:
+            raise KeyError(f"LLM adapter '{model_name}' not found")
+        return self.adapters[model_name]
+    
+    def get_all_adapters(self) -> List[LLMAdapter]:
+        """Get all initialized adapters"""
+        return list(self.adapters.values())
+    
+    def get_adapter_names(self) -> List[str]:
+        """Get names of all initialized adapters"""
+        return list(self.adapters.keys())
+    
+    async def generate_response(self, model_name: str, messages: List[Dict[str, str]]) -> str:
+        """
+        Generate response from a specific model
+        
+        Args:
+            model_name: Name of the model to use
+            messages: List of message dictionaries
+        
+        Returns:
+            Generated response text
+        """
+        adapter = self.get_adapter(model_name)
+        return await adapter.generate_response(messages)

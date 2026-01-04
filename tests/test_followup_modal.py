@@ -3,8 +3,7 @@ Unit tests for follow-up modal functionality
 """
 
 import unittest
-from unittest.mock import AsyncMock, patch, MagicMock
-import asyncio
+from unittest.mock import AsyncMock, MagicMock
 
 
 class TestFollowupModal(unittest.TestCase):
@@ -143,10 +142,7 @@ class TestFollowupModalAsync(unittest.IsolatedAsyncioTestCase):
     
     async def test_send_model_response_with_blocks(self):
         """Test that send_model_response creates proper blocks"""
-        from unittest.mock import patch, MagicMock
-        
-        # Mock the app client
-        mock_client = AsyncMock()
+        # Mock adapter
         mock_adapter = MagicMock()
         mock_adapter.adapter_key = "openai"
         mock_adapter.username = "GPT-5.2"

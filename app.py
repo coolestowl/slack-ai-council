@@ -296,11 +296,23 @@ async def handle_followup_button(ack, body, client):
         # Parse model key from action_id (format: "followup_modelkey")
         model_key = action_id.replace("followup_", "")
         
-        # Parse channel and thread_ts from value
-        channel, thread_ts = value.split("|")
+        # Parse channel and thread_ts from value safely
+        parts = value.split("|")
+        if len(parts) != 2:
+            raise ValueError(f"Unexpected follow-up button value format: {value!r}")
+        channel, thread_ts = parts
         
         # Get the adapter for this model
-        adapter = llm_manager.get_adapter(model_key)
+        try:
+            adapter = llm_manager.get_adapter(model_key)
+        except KeyError:
+            # Adapter is missing or configuration changed; inform the user
+            await client.chat_postEphemeral(
+                channel=channel,
+                user=body.get("user", {}).get("id"),
+                text="所选模型当前不可用，请重新发送问题或稍后再试。"
+            )
+            return
         
         # Open modal for follow-up question
         await client.views_open(
@@ -366,15 +378,31 @@ async def handle_followup_modal_submission(ack, body, client, view):
         client: Slack client
         view: View payload
     """
-    await ack()
+    # Initialize variables for error handling
+    channel = None
+    thread_ts = None
     
     try:
         # Extract the question from modal input
         question = view["state"]["values"]["question_block"]["question_input"]["value"]
         
-        # Parse metadata (format: "channel|thread_ts|model_key")
+        # Validate question is not empty or whitespace-only
+        if not question or not question.strip():
+            # Return validation error in modal
+            await ack(response_action="errors", errors={
+                "question_block": "问题不能为空，请输入有效的问题。"
+            })
+            return
+        
+        # Acknowledge successful submission
+        await ack()
+        
+        # Parse metadata (expected format: "channel|thread_ts|model_key")
         metadata = view["private_metadata"]
-        channel, thread_ts, model_key = metadata.split("|")
+        parts = metadata.split("|", 2)
+        if len(parts) != 3:
+            raise ValueError(f"Invalid private_metadata format: {metadata!r}")
+        channel, thread_ts, model_key = parts
         
         # Get user info
         user_id = body["user"]["id"]
@@ -387,7 +415,16 @@ async def handle_followup_modal_submission(ack, body, client, view):
         )
         
         # Get the adapter for this model
-        adapter = llm_manager.get_adapter(model_key)
+        try:
+            adapter = llm_manager.get_adapter(model_key)
+        except KeyError:
+            # Handle invalid or unknown model keys with a clear message
+            await client.chat_postMessage(
+                channel=channel,
+                thread_ts=thread_ts,
+                text=f"无法找到指定的模型（model_key='{model_key}'）。请联系管理员或重试选择模型。"
+            )
+            return
         
         # Fetch thread messages including the new question
         thread_messages = await fetch_thread_messages(channel, thread_ts)
@@ -404,15 +441,16 @@ async def handle_followup_modal_submission(ack, body, client, view):
     except Exception as e:
         print(f"Error in handle_followup_modal_submission: {e}")
         # Try to send error message to thread if possible
-        try:
-            if 'channel' in locals() and 'thread_ts' in locals():
+        if channel is not None and thread_ts is not None:
+            try:
                 await client.chat_postMessage(
                     channel=channel,
                     thread_ts=thread_ts,
                     text=f"处理追问时出错: {str(e)}"
                 )
-        except:
-            pass
+            except Exception as notify_error:
+                # Swallow secondary notification errors to avoid masking the original exception
+                print(f"Failed to send error notification to Slack: {notify_error}")
 
 
 @app.event("app_mention")

@@ -117,7 +117,7 @@ class TestAdapterStructure(unittest.TestCase):
         
         adapter = GrokAdapter()
         
-        self.assertEqual(adapter.model_name, "grok-1")
+        self.assertEqual(adapter.model_name, "grok-beta")
         self.assertEqual(adapter.username, "Grok")
         self.assertEqual(adapter.icon_emoji, ":lightning:")
     

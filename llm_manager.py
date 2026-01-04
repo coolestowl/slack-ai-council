@@ -135,7 +135,7 @@ class GrokAdapter(LLMAdapter):
     
     def __init__(self):
         super().__init__(
-            model_name="grok-1",
+            model_name="grok-beta",  # Using grok-beta as per X.AI API
             username="Grok",
             icon_emoji=":lightning:"
         )
@@ -155,7 +155,7 @@ class GrokAdapter(LLMAdapter):
                 "Content-Type": "application/json"
             }
             payload = {
-                "model": "grok-beta",
+                "model": self.model_name,
                 "messages": messages,
                 "temperature": 0.7,
                 "max_tokens": 1000

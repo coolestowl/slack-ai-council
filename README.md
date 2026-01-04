@@ -1,13 +1,13 @@
 # Slack AI Council Bot 🤖
 
-A Slack bot that integrates multiple AI models (OpenAI GPT-4o, Google Gemini 2.0 Flash, X.AI Grok 2, ByteDance Doubao) to provide multi-perspective responses in a single thread. Built with Python and the Slack Bolt framework.
+A Slack bot that integrates multiple AI models (OpenAI GPT-5.2, Google Gemini 2.5 Pro, X.AI Grok 3, ByteDance Doubao Seed 1.8) to provide multi-perspective responses in a single thread. Built with Python and the Slack Bolt framework.
 
 ## ✨ Features
 
 ### Core Functionality
 
 1. **Multi-Model Integration** 🔌
-   - Support for OpenAI (GPT-4o), Google Gemini (2.0 Flash), X.AI (Grok 2), and ByteDance (Doubao)
+   - Support for OpenAI (GPT-5.2), Google Gemini (2.5 Pro), X.AI (Grok 3), and ByteDance (Doubao Seed 1.8)
    - Adapter pattern for easy extensibility (Claude, etc.)
    - Unified interface for all AI models
 
@@ -38,7 +38,8 @@ slack-ai-council/
 ├── llm_manager.py         # LLM adapter pattern implementation
 ├── context_filter.py      # Message filtering for context isolation
 ├── mode_manager.py        # Compare vs Debate mode management
-├── requirements.txt       # Python dependencies
+├── pyproject.toml         # Project metadata and dependencies (uv)
+├── uv.lock                # Locked dependencies (uv)
 ├── .env.example          # Environment variables template
 └── README.md             # This file
 ```
@@ -69,6 +70,18 @@ cd slack-ai-council
 ```
 
 ### 2. Install Dependencies
+
+This project uses [uv](https://github.com/astral-sh/uv) for fast, reliable dependency management.
+
+```bash
+# Install uv if you haven't already
+pip install uv
+
+# Install project dependencies
+uv sync
+```
+
+Alternatively, you can still use pip with the legacy requirements.txt:
 
 ```bash
 pip install -r requirements.txt
@@ -135,6 +148,14 @@ DEFAULT_MODE=compare  # compare or debate
 **Note**: You need at least one AI API key for the bot to work. Missing API keys will be skipped with a warning.
 
 ### 5. Run the Bot
+
+Using uv (recommended):
+
+```bash
+uv run python app.py
+```
+
+Or directly with Python (if dependencies are already installed):
 
 ```bash
 python app.py

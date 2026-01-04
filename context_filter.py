@@ -28,6 +28,7 @@ class ContextFilter:
             self.model_usernames = llm_manager.get_username_mapping()
         else:
             # Fallback to empty dict if no manager provided
+            # This is mainly for backward compatibility and testing
             self.model_usernames = {}
     
     def filter_messages_for_model(

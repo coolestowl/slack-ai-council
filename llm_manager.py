@@ -9,6 +9,8 @@ This module provides a unified interface for interacting with different AI model
 """
 
 import os
+import inspect
+import sys
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any
 from dotenv import load_dotenv
@@ -238,18 +240,21 @@ class LLMManager:
     
     def _initialize_adapters(self):
         """Initialize all available LLM adapters by auto-discovering adapter classes"""
-        import inspect
-        import sys
-        
         # Get all classes in the current module that are subclasses of LLMAdapter
         current_module = sys.modules[__name__]
         adapter_classes = []
+        seen_keys = {}
         
         for name, obj in inspect.getmembers(current_module, inspect.isclass):
             # Check if it's a subclass of LLMAdapter but not LLMAdapter itself
             if issubclass(obj, LLMAdapter) and obj is not LLMAdapter:
                 # Check if it has an adapter_key defined
                 if hasattr(obj, 'adapter_key') and obj.adapter_key is not None:
+                    # Check for duplicate keys
+                    if obj.adapter_key in seen_keys:
+                        print(f"⚠ Warning: Duplicate adapter_key '{obj.adapter_key}' found in {name} and {seen_keys[obj.adapter_key]}. Skipping {name}.")
+                        continue
+                    seen_keys[obj.adapter_key] = name
                     adapter_classes.append((obj.adapter_key, obj))
         
         # Initialize each adapter

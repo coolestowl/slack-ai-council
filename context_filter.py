@@ -24,8 +24,9 @@ class ContextFilter:
         # Map of model usernames to identify which model sent which message
         self.model_usernames = {
             "GPT-4o": "openai",
-            "Gemini-1.5-Pro": "gemini",
-            "Grok": "grok"
+            "Gemini-2.0-Flash": "gemini",
+            "Grok-2": "grok",
+            "Doubao": "doubao"
         }
     
     def filter_messages_for_model(

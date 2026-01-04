@@ -16,7 +16,8 @@ class TestLLMManager(unittest.TestCase):
     @patch.dict(os.environ, {
         'OPENAI_API_KEY': 'test-openai-key',
         'GOOGLE_API_KEY': 'test-google-key',
-        'XAI_API_KEY': 'test-xai-key'
+        'XAI_API_KEY': 'test-xai-key',
+        'DOUBAO_API_KEY': 'test-doubao-key'
     })
     def test_manager_initialization_with_keys(self):
         """Test manager initialization when all API keys are present"""
@@ -24,10 +25,11 @@ class TestLLMManager(unittest.TestCase):
         
         manager = LLMManager()
         
-        # Should have all three adapters
+        # Should have all four adapters
         self.assertIn("openai", manager.get_adapter_names())
         self.assertIn("gemini", manager.get_adapter_names())
         self.assertIn("grok", manager.get_adapter_names())
+        self.assertIn("doubao", manager.get_adapter_names())
     
     @patch.dict(os.environ, {}, clear=True)
     def test_manager_initialization_without_keys(self):
@@ -106,8 +108,8 @@ class TestAdapterStructure(unittest.TestCase):
         
         adapter = GeminiAdapter()
         
-        self.assertEqual(adapter.model_name, "gemini-1.5-pro")
-        self.assertEqual(adapter.username, "Gemini-1.5-Pro")
+        self.assertEqual(adapter.model_name, "gemini-2.0-flash-exp")
+        self.assertEqual(adapter.username, "Gemini-2.0-Flash")
         self.assertEqual(adapter.icon_emoji, ":gem:")
     
     @patch.dict(os.environ, {'XAI_API_KEY': 'test-key'})
@@ -117,9 +119,20 @@ class TestAdapterStructure(unittest.TestCase):
         
         adapter = GrokAdapter()
         
-        self.assertEqual(adapter.model_name, "grok-beta")
-        self.assertEqual(adapter.username, "Grok")
+        self.assertEqual(adapter.model_name, "grok-2-latest")
+        self.assertEqual(adapter.username, "Grok-2")
         self.assertEqual(adapter.icon_emoji, ":lightning:")
+    
+    @patch.dict(os.environ, {'DOUBAO_API_KEY': 'test-key'})
+    def test_doubao_adapter_structure(self):
+        """Test Doubao adapter structure"""
+        from llm_manager import DoubaoAdapter
+        
+        adapter = DoubaoAdapter()
+        
+        self.assertEqual(adapter.model_name, "doubao-pro-32k")
+        self.assertEqual(adapter.username, "Doubao")
+        self.assertEqual(adapter.icon_emoji, ":coffee:")
     
     def test_adapter_missing_key(self):
         """Test adapter initialization without API key"""

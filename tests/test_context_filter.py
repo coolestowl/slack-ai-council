@@ -48,7 +48,7 @@ class TestContextFilter(unittest.TestCase):
         messages = [
             {"text": "What's AI?", "user": "U123"},
             {"text": "Response from GPT", "bot_id": "B123", "username": "GPT-4o"},
-            {"text": "Response from Gemini", "bot_id": "B123", "username": "Gemini-1.5-Pro"},
+            {"text": "Response from Gemini", "bot_id": "B123", "username": "Gemini-2.0-Flash"},
             {"text": "Follow-up question", "user": "U123"}
         ]
         
@@ -84,8 +84,9 @@ class TestContextFilter(unittest.TestCase):
     def test_get_model_from_username(self):
         """Test model identification from username"""
         self.assertEqual(self.filter.get_model_from_username("GPT-4o"), "openai")
-        self.assertEqual(self.filter.get_model_from_username("Gemini-1.5-Pro"), "gemini")
-        self.assertEqual(self.filter.get_model_from_username("Grok"), "grok")
+        self.assertEqual(self.filter.get_model_from_username("Gemini-2.0-Flash"), "gemini")
+        self.assertEqual(self.filter.get_model_from_username("Grok-2"), "grok")
+        self.assertEqual(self.filter.get_model_from_username("Doubao"), "doubao")
         self.assertEqual(self.filter.get_model_from_username("Unknown"), "unknown")
     
     def test_build_prompt_with_context(self):

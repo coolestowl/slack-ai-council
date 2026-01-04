@@ -1,13 +1,13 @@
 # Slack AI Council Bot 🤖
 
-A Slack bot that integrates multiple AI models (OpenAI GPT-4o, Google Gemini 1.5 Pro, X.AI Grok) to provide multi-perspective responses in a single thread. Built with Python and the Slack Bolt framework.
+A Slack bot that integrates multiple AI models (OpenAI GPT-4o, Google Gemini 2.0 Flash, X.AI Grok 2, ByteDance Doubao) to provide multi-perspective responses in a single thread. Built with Python and the Slack Bolt framework.
 
 ## ✨ Features
 
 ### Core Functionality
 
 1. **Multi-Model Integration** 🔌
-   - Support for OpenAI (GPT-4o), Google Gemini (1.5 Pro), and X.AI (Grok)
+   - Support for OpenAI (GPT-4o), Google Gemini (2.0 Flash), X.AI (Grok 2), and ByteDance (Doubao)
    - Adapter pattern for easy extensibility (Claude, etc.)
    - Unified interface for all AI models
 
@@ -59,6 +59,7 @@ slack-ai-council/
   - OpenAI API key
   - Google API key (for Gemini)
   - X.AI API key (for Grok)
+  - ByteDance API key (for Doubao)
 
 ### 1. Clone the Repository
 
@@ -125,6 +126,7 @@ SLACK_APP_TOKEN=xapp-your-app-token-here
 OPENAI_API_KEY=sk-your-openai-key
 GOOGLE_API_KEY=your-google-api-key
 XAI_API_KEY=your-xai-key
+DOUBAO_API_KEY=your-doubao-api-key
 
 # Optional Configuration
 DEFAULT_MODE=compare  # compare or debate
@@ -143,10 +145,11 @@ You should see:
 ✓ Initialized openai adapter
 ✓ Initialized gemini adapter
 ✓ Initialized grok adapter
+✓ Initialized doubao adapter
 ==================================================
 Slack AI Council Bot Starting
 ==================================================
-Configured AI Models: openai, gemini, grok
+Configured AI Models: openai, gemini, grok, doubao
 Default Mode: COMPARE
 Mode Description: Compare Mode: All AI models respond concurrently
 ==================================================

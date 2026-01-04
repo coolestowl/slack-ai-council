@@ -3,6 +3,7 @@ Unit tests for Context Filter module
 """
 
 import unittest
+from unittest.mock import Mock
 from context_filter import ContextFilter, create_default_system_prompt
 
 
@@ -11,7 +12,15 @@ class TestContextFilter(unittest.TestCase):
     
     def setUp(self):
         """Set up test fixtures"""
-        self.filter = ContextFilter(bot_user_id="BOT123")
+        # Create a mock LLMManager with username mappings
+        mock_llm_manager = Mock()
+        mock_llm_manager.get_username_mapping.return_value = {
+            "GPT-4o": "openai",
+            "Gemini-2.0-Flash": "gemini",
+            "Grok-2": "grok",
+            "Doubao": "doubao"
+        }
+        self.filter = ContextFilter(bot_user_id="BOT123", llm_manager=mock_llm_manager)
     
     def test_filter_user_messages_only(self):
         """Test filtering when only user messages exist"""

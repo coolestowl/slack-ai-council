@@ -187,37 +187,28 @@ Or explicitly use compare mode:
 
 ### Adding New AI Models
 
-1. Create a new adapter class in `llm_manager.py`:
+Adding a new AI model is simple - just create a new adapter class in `llm_manager.py`:
 
 ```python
 class ClaudeAdapter(LLMAdapter):
+    adapter_key = "claude"  # Unique identifier for this adapter
+    
     def __init__(self):
         super().__init__(
-            model_name="claude-3",
-            username="Claude",
+            model_name="claude-3-5-sonnet-20241022",
+            username="Claude-3.5",
             icon_emoji=":brain:"
         )
         self.api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not self.api_key:
+            raise ValueError("ANTHROPIC_API_KEY not found in environment variables")
     
     async def generate_response(self, messages: List[Dict[str, str]]) -> str:
         # Implementation here
         pass
 ```
 
-2. Register it in `LLMManager._initialize_adapters()`:
-
-```python
-("claude", ClaudeAdapter),
-```
-
-3. Add the username to `context_filter.py`:
-
-```python
-self.model_usernames = {
-    # ... existing models ...
-    "Claude": "claude"
-}
-```
+That's it! The adapter will be automatically discovered and registered. No need to modify other files.
 
 ### Customizing System Prompts
 

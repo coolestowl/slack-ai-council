@@ -35,12 +35,12 @@ async def initialize_context_filter():
     try:
         auth_response = await app.client.auth_test()
         bot_user_id = auth_response["user_id"]
-        context_filter = ContextFilter(bot_user_id)
+        context_filter = ContextFilter(bot_user_id, llm_manager)
         print(f"✓ Context filter initialized with bot user ID: {bot_user_id}")
     except Exception as e:
         print(f"✗ Error initializing context filter: {e}")
         # Create a fallback context filter
-        context_filter = ContextFilter("UNKNOWN")
+        context_filter = ContextFilter("UNKNOWN", llm_manager)
 
 
 async def fetch_thread_messages(channel: str, thread_ts: str) -> List[Dict[str, Any]]:

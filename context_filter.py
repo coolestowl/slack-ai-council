@@ -13,21 +13,22 @@ from typing import List, Dict, Any
 class ContextFilter:
     """Filter message history for context isolation between AI models"""
     
-    def __init__(self, bot_user_id: str):
+    def __init__(self, bot_user_id: str, llm_manager=None):
         """
         Initialize context filter
         
         Args:
             bot_user_id: The Slack bot's user ID
+            llm_manager: Optional LLMManager instance to auto-populate model usernames
         """
         self.bot_user_id = bot_user_id
         # Map of model usernames to identify which model sent which message
-        self.model_usernames = {
-            "GPT-4o": "openai",
-            "Gemini-2.0-Flash": "gemini",
-            "Grok-2": "grok",
-            "Doubao": "doubao"
-        }
+        if llm_manager:
+            # Auto-populate from LLMManager
+            self.model_usernames = llm_manager.get_username_mapping()
+        else:
+            # Fallback to empty dict if no manager provided
+            self.model_usernames = {}
     
     def filter_messages_for_model(
         self,

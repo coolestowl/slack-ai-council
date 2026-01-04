@@ -20,6 +20,9 @@ load_dotenv()
 class LLMAdapter(ABC):
     """Abstract base class for LLM adapters"""
     
+    # Class variable to store the adapter key for auto-registration
+    adapter_key: str = None
+    
     def __init__(self, model_name: str, username: str, icon_emoji: str):
         """
         Initialize LLM adapter
@@ -57,6 +60,8 @@ class LLMAdapter(ABC):
 class OpenAIAdapter(LLMAdapter):
     """Adapter for OpenAI API (GPT-4o or newer)"""
     
+    adapter_key = "openai"
+    
     def __init__(self):
         super().__init__(
             model_name="gpt-4o",  # Using latest stable GPT-4o
@@ -87,6 +92,8 @@ class OpenAIAdapter(LLMAdapter):
 
 class GeminiAdapter(LLMAdapter):
     """Adapter for Google Gemini API (2.0 Flash)"""
+    
+    adapter_key = "gemini"
     
     def __init__(self):
         super().__init__(
@@ -134,6 +141,8 @@ class GeminiAdapter(LLMAdapter):
 class GrokAdapter(LLMAdapter):
     """Adapter for X.AI Grok API (Grok 2)"""
     
+    adapter_key = "grok"
+    
     def __init__(self):
         super().__init__(
             model_name="grok-2-latest",  # Using latest Grok 2 model
@@ -176,6 +185,8 @@ class GrokAdapter(LLMAdapter):
 
 class DoubaoAdapter(LLMAdapter):
     """Adapter for ByteDance Doubao API"""
+    
+    adapter_key = "doubao"
     
     def __init__(self):
         super().__init__(
@@ -226,22 +237,30 @@ class LLMManager:
         self._initialize_adapters()
     
     def _initialize_adapters(self):
-        """Initialize all available LLM adapters"""
-        adapters_to_init = [
-            ("openai", OpenAIAdapter),
-            ("gemini", GeminiAdapter),
-            ("grok", GrokAdapter),
-            ("doubao", DoubaoAdapter)
-        ]
+        """Initialize all available LLM adapters by auto-discovering adapter classes"""
+        import inspect
+        import sys
         
-        for name, adapter_class in adapters_to_init:
+        # Get all classes in the current module that are subclasses of LLMAdapter
+        current_module = sys.modules[__name__]
+        adapter_classes = []
+        
+        for name, obj in inspect.getmembers(current_module, inspect.isclass):
+            # Check if it's a subclass of LLMAdapter but not LLMAdapter itself
+            if issubclass(obj, LLMAdapter) and obj is not LLMAdapter:
+                # Check if it has an adapter_key defined
+                if hasattr(obj, 'adapter_key') and obj.adapter_key is not None:
+                    adapter_classes.append((obj.adapter_key, obj))
+        
+        # Initialize each adapter
+        for adapter_key, adapter_class in adapter_classes:
             try:
-                self.adapters[name] = adapter_class()
-                print(f"✓ Initialized {name} adapter")
+                self.adapters[adapter_key] = adapter_class()
+                print(f"✓ Initialized {adapter_key} adapter")
             except ValueError as e:
-                print(f"✗ Skipping {name} adapter: {e}")
+                print(f"✗ Skipping {adapter_key} adapter: {e}")
             except Exception as e:
-                print(f"✗ Error initializing {name} adapter: {e}")
+                print(f"✗ Error initializing {adapter_key} adapter: {e}")
     
     def get_adapter(self, model_name: str) -> LLMAdapter:
         """
@@ -267,6 +286,18 @@ class LLMManager:
     def get_adapter_names(self) -> List[str]:
         """Get names of all initialized adapters"""
         return list(self.adapters.keys())
+    
+    def get_username_mapping(self) -> Dict[str, str]:
+        """
+        Get mapping of model usernames to adapter keys
+        
+        Returns:
+            Dictionary mapping username (e.g., "GPT-4o") to adapter key (e.g., "openai")
+        """
+        mapping = {}
+        for adapter_key, adapter in self.adapters.items():
+            mapping[adapter.username] = adapter_key
+        return mapping
     
     async def generate_response(self, model_name: str, messages: List[Dict[str, str]]) -> str:
         """

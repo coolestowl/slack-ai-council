@@ -3,6 +3,7 @@ Unit tests for Context Filter module
 """
 
 import unittest
+from unittest.mock import Mock
 from context_filter import ContextFilter, create_default_system_prompt
 
 
@@ -11,7 +12,15 @@ class TestContextFilter(unittest.TestCase):
     
     def setUp(self):
         """Set up test fixtures"""
-        self.filter = ContextFilter(bot_user_id="BOT123")
+        # Create a mock LLMManager with username mappings
+        mock_llm_manager = Mock()
+        mock_llm_manager.get_username_mapping.return_value = {
+            "GPT-4o": "openai",
+            "Gemini-2.0-Flash": "gemini",
+            "Grok-2": "grok",
+            "Doubao": "doubao"
+        }
+        self.filter = ContextFilter(bot_user_id="BOT123", llm_manager=mock_llm_manager)
     
     def test_filter_user_messages_only(self):
         """Test filtering when only user messages exist"""
@@ -48,7 +57,7 @@ class TestContextFilter(unittest.TestCase):
         messages = [
             {"text": "What's AI?", "user": "U123"},
             {"text": "Response from GPT", "bot_id": "B123", "username": "GPT-4o"},
-            {"text": "Response from Gemini", "bot_id": "B123", "username": "Gemini-1.5-Pro"},
+            {"text": "Response from Gemini", "bot_id": "B123", "username": "Gemini-2.0-Flash"},
             {"text": "Follow-up question", "user": "U123"}
         ]
         
@@ -84,8 +93,9 @@ class TestContextFilter(unittest.TestCase):
     def test_get_model_from_username(self):
         """Test model identification from username"""
         self.assertEqual(self.filter.get_model_from_username("GPT-4o"), "openai")
-        self.assertEqual(self.filter.get_model_from_username("Gemini-1.5-Pro"), "gemini")
-        self.assertEqual(self.filter.get_model_from_username("Grok"), "grok")
+        self.assertEqual(self.filter.get_model_from_username("Gemini-2.0-Flash"), "gemini")
+        self.assertEqual(self.filter.get_model_from_username("Grok-2"), "grok")
+        self.assertEqual(self.filter.get_model_from_username("Doubao"), "doubao")
         self.assertEqual(self.filter.get_model_from_username("Unknown"), "unknown")
     
     def test_build_prompt_with_context(self):

@@ -3,11 +3,14 @@ LLM Manager - Adapter Pattern for Multiple AI Models
 
 This module provides a unified interface for interacting with different AI models:
 - OpenAI (GPT-4o)
-- Google Gemini (1.5 Pro)
-- X.AI (Grok-1)
+- Google Gemini (2.0 Flash)
+- X.AI (Grok 2)
+- ByteDance (Doubao)
 """
 
 import os
+import inspect
+import sys
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any
 from dotenv import load_dotenv
@@ -18,6 +21,9 @@ load_dotenv()
 
 class LLMAdapter(ABC):
     """Abstract base class for LLM adapters"""
+    
+    # Class variable to store the adapter key for auto-registration
+    adapter_key: str = None
     
     def __init__(self, model_name: str, username: str, icon_emoji: str):
         """
@@ -54,11 +60,13 @@ class LLMAdapter(ABC):
 
 
 class OpenAIAdapter(LLMAdapter):
-    """Adapter for OpenAI API (GPT-4o)"""
+    """Adapter for OpenAI API (GPT-4o or newer)"""
+    
+    adapter_key = "openai"
     
     def __init__(self):
         super().__init__(
-            model_name="gpt-4o",
+            model_name="gpt-4o",  # Using latest stable GPT-4o
             username="GPT-4o",
             icon_emoji=":robot_face:"
         )
@@ -85,12 +93,14 @@ class OpenAIAdapter(LLMAdapter):
 
 
 class GeminiAdapter(LLMAdapter):
-    """Adapter for Google Gemini API (1.5 Pro)"""
+    """Adapter for Google Gemini API (2.0 Flash)"""
+    
+    adapter_key = "gemini"
     
     def __init__(self):
         super().__init__(
-            model_name="gemini-1.5-pro",
-            username="Gemini-1.5-Pro",
+            model_name="gemini-2.0-flash-exp",
+            username="Gemini-2.0-Flash",
             icon_emoji=":gem:"
         )
         self.api_key = os.getenv("GOOGLE_API_KEY")
@@ -131,12 +141,14 @@ class GeminiAdapter(LLMAdapter):
 
 
 class GrokAdapter(LLMAdapter):
-    """Adapter for X.AI Grok API"""
+    """Adapter for X.AI Grok API (Grok 2)"""
+    
+    adapter_key = "grok"
     
     def __init__(self):
         super().__init__(
-            model_name="grok-beta",  # Using grok-beta as per X.AI API
-            username="Grok",
+            model_name="grok-2-latest",  # Using latest Grok 2 model
+            username="Grok-2",
             icon_emoji=":lightning:"
         )
         self.api_key = os.getenv("XAI_API_KEY")
@@ -173,6 +185,51 @@ class GrokAdapter(LLMAdapter):
             return f"Error generating response from {self.username}: {str(e)}"
 
 
+class DoubaoAdapter(LLMAdapter):
+    """Adapter for ByteDance Doubao API"""
+    
+    adapter_key = "doubao"
+    
+    def __init__(self):
+        super().__init__(
+            model_name="doubao-pro-32k",  # Using latest Doubao model
+            username="Doubao",
+            icon_emoji=":coffee:"
+        )
+        self.api_key = os.getenv("DOUBAO_API_KEY")
+        if not self.api_key:
+            raise ValueError("DOUBAO_API_KEY not found in environment variables")
+    
+    async def generate_response(self, messages: List[Dict[str, str]]) -> str:
+        """Generate response using ByteDance Doubao API"""
+        try:
+            import aiohttp
+            
+            # Doubao uses OpenAI-compatible API
+            url = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": self.model_name,
+                "messages": messages,
+                "temperature": 0.7,
+                "max_tokens": 1000
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers=headers, json=payload) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return data["choices"][0]["message"]["content"]
+                    else:
+                        error_text = await response.text()
+                        return f"Error from {self.username}: HTTP {response.status} - {error_text}"
+        except Exception as e:
+            return f"Error generating response from {self.username}: {str(e)}"
+
+
 class LLMManager:
     """Manager class to handle multiple LLM adapters"""
     
@@ -182,21 +239,33 @@ class LLMManager:
         self._initialize_adapters()
     
     def _initialize_adapters(self):
-        """Initialize all available LLM adapters"""
-        adapters_to_init = [
-            ("openai", OpenAIAdapter),
-            ("gemini", GeminiAdapter),
-            ("grok", GrokAdapter)
-        ]
+        """Initialize all available LLM adapters by auto-discovering adapter classes"""
+        # Get all classes in the current module that are subclasses of LLMAdapter
+        current_module = sys.modules[__name__]
+        adapter_classes = []
+        seen_keys = {}
         
-        for name, adapter_class in adapters_to_init:
+        for name, obj in inspect.getmembers(current_module, inspect.isclass):
+            # Check if it's a subclass of LLMAdapter but not LLMAdapter itself
+            if issubclass(obj, LLMAdapter) and obj is not LLMAdapter:
+                # Check if it has an adapter_key defined
+                if hasattr(obj, 'adapter_key') and obj.adapter_key is not None:
+                    # Check for duplicate keys
+                    if obj.adapter_key in seen_keys:
+                        print(f"⚠ Warning: Duplicate adapter_key '{obj.adapter_key}' found in {name} and {seen_keys[obj.adapter_key]}. Skipping {name}.")
+                        continue
+                    seen_keys[obj.adapter_key] = name
+                    adapter_classes.append((obj.adapter_key, obj))
+        
+        # Initialize each adapter
+        for adapter_key, adapter_class in adapter_classes:
             try:
-                self.adapters[name] = adapter_class()
-                print(f"✓ Initialized {name} adapter")
+                self.adapters[adapter_key] = adapter_class()
+                print(f"✓ Initialized {adapter_key} adapter")
             except ValueError as e:
-                print(f"✗ Skipping {name} adapter: {e}")
+                print(f"✗ Skipping {adapter_key} adapter: {e}")
             except Exception as e:
-                print(f"✗ Error initializing {name} adapter: {e}")
+                print(f"✗ Error initializing {adapter_key} adapter: {e}")
     
     def get_adapter(self, model_name: str) -> LLMAdapter:
         """
@@ -222,6 +291,18 @@ class LLMManager:
     def get_adapter_names(self) -> List[str]:
         """Get names of all initialized adapters"""
         return list(self.adapters.keys())
+    
+    def get_username_mapping(self) -> Dict[str, str]:
+        """
+        Get mapping of model usernames to adapter keys
+        
+        Returns:
+            Dictionary mapping username (e.g., "GPT-4o") to adapter key (e.g., "openai")
+        """
+        mapping = {}
+        for adapter_key, adapter in self.adapters.items():
+            mapping[adapter.username] = adapter_key
+        return mapping
     
     async def generate_response(self, model_name: str, messages: List[Dict[str, str]]) -> str:
         """

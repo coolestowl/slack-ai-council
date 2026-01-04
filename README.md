@@ -1,13 +1,13 @@
 # Slack AI Council Bot 🤖
 
-A Slack bot that integrates multiple AI models (OpenAI GPT-4o, Google Gemini 1.5 Pro, X.AI Grok) to provide multi-perspective responses in a single thread. Built with Python and the Slack Bolt framework.
+A Slack bot that integrates multiple AI models (OpenAI GPT-4o, Google Gemini 2.0 Flash, X.AI Grok 2, ByteDance Doubao) to provide multi-perspective responses in a single thread. Built with Python and the Slack Bolt framework.
 
 ## ✨ Features
 
 ### Core Functionality
 
 1. **Multi-Model Integration** 🔌
-   - Support for OpenAI (GPT-4o), Google Gemini (1.5 Pro), and X.AI (Grok)
+   - Support for OpenAI (GPT-4o), Google Gemini (2.0 Flash), X.AI (Grok 2), and ByteDance (Doubao)
    - Adapter pattern for easy extensibility (Claude, etc.)
    - Unified interface for all AI models
 
@@ -59,6 +59,7 @@ slack-ai-council/
   - OpenAI API key
   - Google API key (for Gemini)
   - X.AI API key (for Grok)
+  - ByteDance API key (for Doubao)
 
 ### 1. Clone the Repository
 
@@ -125,6 +126,7 @@ SLACK_APP_TOKEN=xapp-your-app-token-here
 OPENAI_API_KEY=sk-your-openai-key
 GOOGLE_API_KEY=your-google-api-key
 XAI_API_KEY=your-xai-key
+DOUBAO_API_KEY=your-doubao-api-key
 
 # Optional Configuration
 DEFAULT_MODE=compare  # compare or debate
@@ -143,10 +145,11 @@ You should see:
 ✓ Initialized openai adapter
 ✓ Initialized gemini adapter
 ✓ Initialized grok adapter
+✓ Initialized doubao adapter
 ==================================================
 Slack AI Council Bot Starting
 ==================================================
-Configured AI Models: openai, gemini, grok
+Configured AI Models: openai, gemini, grok, doubao
 Default Mode: COMPARE
 Mode Description: Compare Mode: All AI models respond concurrently
 ==================================================
@@ -184,37 +187,28 @@ Or explicitly use compare mode:
 
 ### Adding New AI Models
 
-1. Create a new adapter class in `llm_manager.py`:
+Adding a new AI model is simple - just create a new adapter class in `llm_manager.py`:
 
 ```python
 class ClaudeAdapter(LLMAdapter):
+    adapter_key = "claude"  # Unique identifier for this adapter
+    
     def __init__(self):
         super().__init__(
-            model_name="claude-3",
-            username="Claude",
+            model_name="claude-3-5-sonnet-20241022",
+            username="Claude-3.5",
             icon_emoji=":brain:"
         )
         self.api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not self.api_key:
+            raise ValueError("ANTHROPIC_API_KEY not found in environment variables")
     
     async def generate_response(self, messages: List[Dict[str, str]]) -> str:
         # Implementation here
         pass
 ```
 
-2. Register it in `LLMManager._initialize_adapters()`:
-
-```python
-("claude", ClaudeAdapter),
-```
-
-3. Add the username to `context_filter.py`:
-
-```python
-self.model_usernames = {
-    # ... existing models ...
-    "Claude": "claude"
-}
-```
+That's it! The adapter will be automatically discovered and registered. No need to modify other files.
 
 ### Customizing System Prompts
 

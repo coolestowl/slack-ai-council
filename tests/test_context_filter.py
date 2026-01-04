@@ -105,6 +105,23 @@ class TestContextFilter(unittest.TestCase):
         self.assertEqual(result[0]["role"], "user")
         self.assertEqual(result[0]["content"], "This is a regular message")
     
+    def test_mention_in_middle_preserved(self):
+        """Test that mentions in the middle of messages are preserved"""
+        messages = [
+            {"text": "<@BOT123> Hey, ask <@USER456> about this", "user": "U123"},
+            {"text": "This is about <@USER789> not at the start", "user": "U456"}
+        ]
+        
+        result = self.filter.filter_messages_for_model(messages, "GPT-4o")
+        
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0]["role"], "user")
+        # Leading mention removed, but middle mention preserved
+        self.assertEqual(result[0]["content"], "Hey, ask <@USER456> about this")
+        self.assertEqual(result[1]["role"], "user")
+        # No leading mention, so text preserved as-is
+        self.assertEqual(result[1]["content"], "This is about <@USER789> not at the start")
+    
     def test_filter_includes_own_responses(self):
         """Test that model sees its own previous responses"""
         messages = [

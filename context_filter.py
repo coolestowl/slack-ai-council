@@ -14,9 +14,10 @@ from typing import List, Dict, Any
 class ContextFilter:
     """Filter message history for context isolation between AI models"""
     
-    # Compiled regex pattern for removing Slack mentions
+    # Compiled regex pattern for removing Slack mentions at the beginning of text
     # Matches format: <@USERID> where USERID can contain letters, digits, and underscores
-    MENTION_PATTERN = re.compile(r'<@\w+>\s*')
+    # The ^ anchor ensures we only match mentions at the start of the text
+    MENTION_PATTERN = re.compile(r'^<@\w+>\s*')
     
     def __init__(self, bot_user_id: str, llm_manager=None):
         """
@@ -44,15 +45,17 @@ class ContextFilter:
         This method removes any mention from the beginning of the text, which
         is typically the bot's mention when triggered via @mention.
         
+        Mentions in the middle or end of the text are preserved.
+        
         Args:
             text: Original message text that may contain a mention
         
         Returns:
             Text with leading mention removed
         """
-        # Remove mentions (format: <@USERID>) from the beginning of text
-        # Use count=1 to only remove the first mention
-        cleaned_text = self.MENTION_PATTERN.sub('', text, count=1).strip()
+        # Remove mentions (format: <@USERID>) from the beginning of text only
+        # The ^ anchor ensures we only match at the start
+        cleaned_text = self.MENTION_PATTERN.sub('', text).strip()
         return cleaned_text
     
     def filter_messages_for_model(

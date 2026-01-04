@@ -130,8 +130,8 @@ class TestAdapterStructure(unittest.TestCase):
         
         adapter = DoubaoAdapter()
         
-        self.assertEqual(adapter.model_name, "doubao-1.5-pro-256k")
-        self.assertEqual(adapter.username, "Doubao-1.5-Pro")
+        self.assertEqual(adapter.model_name, "doubao-seed-1-8-251215")
+        self.assertEqual(adapter.username, "Doubao-Seed-1.8")
         self.assertEqual(adapter.icon_emoji, ":coffee:")
     
     def test_adapter_missing_key(self):

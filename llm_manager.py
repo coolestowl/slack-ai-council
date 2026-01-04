@@ -5,7 +5,7 @@ This module provides a unified interface for interacting with different AI model
 - OpenAI (GPT-5.2)
 - Google Gemini (2.5 Pro)
 - X.AI (Grok 3)
-- ByteDance (Doubao 1.5 Pro)
+- ByteDance (Doubao Seed 1.8)
 """
 
 import os
@@ -186,14 +186,14 @@ class GrokAdapter(LLMAdapter):
 
 
 class DoubaoAdapter(LLMAdapter):
-    """Adapter for ByteDance Doubao API (1.5 Pro)"""
+    """Adapter for ByteDance Doubao API (Seed 1.8)"""
     
     adapter_key = "doubao"
     
     def __init__(self):
         super().__init__(
-            model_name="doubao-1.5-pro-256k",  # Using latest Doubao 1.5 Pro model
-            username="Doubao-1.5-Pro",
+            model_name="doubao-seed-1-8-251215",  # Using Doubao Seed 1.8 model
+            username="Doubao-Seed-1.8",
             icon_emoji=":coffee:"
         )
         self.api_key = os.getenv("DOUBAO_API_KEY")

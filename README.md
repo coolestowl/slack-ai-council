@@ -30,6 +30,12 @@ A Slack bot that integrates multiple AI models (OpenAI GPT-5.2, Google Gemini 3 
    - **Compare Mode** (default): All models respond concurrently to user questions
    - **Debate Mode**: Models respond sequentially, seeing each other's responses
 
+6. **Interactive Follow-up Questions** 💬
+   - Each AI response includes a follow-up button
+   - Click to open a modal and ask follow-up questions to a specific model
+   - Follow-up questions are posted to the thread for visibility
+   - Only the selected model responds to follow-up questions
+
 ## 🏗️ Architecture
 
 ```
@@ -203,6 +209,17 @@ Or explicitly use compare mode:
 **Modes:**
 - **Compare mode** (default): All AI models respond concurrently, each seeing only user messages and their own history
 - **Debate mode**: AI models respond sequentially, seeing all previous responses
+
+### Follow-up Questions
+
+Each AI model's response includes a "追问" (Follow-up) button. Click the button to:
+
+1. Open a modal dialog specific to that model
+2. Type your follow-up question
+3. Submit to get a response from only that model
+4. The follow-up question and response appear in the thread
+
+This allows you to have focused conversations with individual models without triggering all models.
 
 ## 🔧 Extending the Bot
 

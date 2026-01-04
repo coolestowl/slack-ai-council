@@ -108,8 +108,8 @@ class TestAdapterStructure(unittest.TestCase):
         
         adapter = GeminiAdapter()
         
-        self.assertEqual(adapter.model_name, "gemini-2.5-pro")
-        self.assertEqual(adapter.username, "Gemini-2.5-Pro")
+        self.assertEqual(adapter.model_name, "gemini-3-flash-preview")
+        self.assertEqual(adapter.username, "Gemini-3-Flash-Preview")
         self.assertEqual(adapter.icon_emoji, ":gem:")
     
     @patch.dict(os.environ, {'XAI_API_KEY': 'test-key'})

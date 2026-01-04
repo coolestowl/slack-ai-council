@@ -1,13 +1,13 @@
 # Slack AI Council Bot 🤖
 
-A Slack bot that integrates multiple AI models (OpenAI GPT-5.2, Google Gemini 2.5 Pro, X.AI Grok 3, ByteDance Doubao Seed 1.8) to provide multi-perspective responses in a single thread. Built with Python and the Slack Bolt framework.
+A Slack bot that integrates multiple AI models (OpenAI GPT-5.2, Google Gemini 3 Flash Preview, X.AI Grok 3, ByteDance Doubao Seed 1.8) to provide multi-perspective responses in a single thread. Built with Python and the Slack Bolt framework.
 
 ## ✨ Features
 
 ### Core Functionality
 
 1. **Multi-Model Integration** 🔌
-   - Support for OpenAI (GPT-5.2), Google Gemini (2.5 Pro), X.AI (Grok 3), and ByteDance (Doubao Seed 1.8)
+   - Support for OpenAI (GPT-5.2), Google Gemini (3 Flash Preview), X.AI (Grok 3), and ByteDance (Doubao Seed 1.8)
    - Adapter pattern for easy extensibility (Claude, etc.)
    - Unified interface for all AI models
 

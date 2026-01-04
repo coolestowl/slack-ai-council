@@ -51,6 +51,21 @@ class TestContextFilter(unittest.TestCase):
         self.assertEqual(result[1]["role"], "user")
         self.assertEqual(result[1]["content"], "Explain quantum computing")
     
+    def test_remove_bot_mention_lowercase(self):
+        """Test that bot mentions with lowercase IDs are removed"""
+        messages = [
+            {"text": "<@u12345> What is AI?", "user": "U123"},
+            {"text": "<@Uabc123> Explain ML", "user": "U456"}
+        ]
+        
+        result = self.filter.filter_messages_for_model(messages, "GPT-4o")
+        
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0]["role"], "user")
+        self.assertEqual(result[0]["content"], "What is AI?")
+        self.assertEqual(result[1]["role"], "user")
+        self.assertEqual(result[1]["content"], "Explain ML")
+    
     def test_remove_bot_mention_with_mode(self):
         """Test that bot mentions are removed even with inline mode specification"""
         messages = [

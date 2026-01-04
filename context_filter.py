@@ -34,20 +34,22 @@ class ContextFilter:
     
     def remove_bot_mention(self, text: str) -> str:
         """
-        Remove bot mention from message text
+        Remove any user mention from the beginning of message text
         
         Slack mentions look like "<@U12345>" where U12345 is the user ID.
-        This method removes the bot's mention from the beginning of the text.
+        This method removes any mention from the beginning of the text, which
+        is typically the bot's mention when triggered via @mention.
         
         Args:
-            text: Original message text that may contain bot mention
+            text: Original message text that may contain a mention
         
         Returns:
-            Text with bot mention removed
+            Text with leading mention removed
         """
-        # Remove bot mentions (format: <@USERID>) from the beginning of text
+        # Remove mentions (format: <@USERID>) from the beginning of text
+        # Pattern matches both uppercase and lowercase user IDs
         # Use count=1 to only remove the first mention
-        cleaned_text = re.sub(r'<@[A-Z0-9]+>\s*', '', text, count=1).strip()
+        cleaned_text = re.sub(r'<@[A-Za-z0-9]+>\s*', '', text, count=1).strip()
         return cleaned_text
     
     def filter_messages_for_model(

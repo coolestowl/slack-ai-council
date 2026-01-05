@@ -64,7 +64,7 @@ class OpenAIAdapter(LLMAdapter):
     
     adapter_key = "openai"
     
-    def __init__(self, model_name: str = None):
+    def __init__(self, model_name: str = None, username: str = None):
         self.api_key = os.getenv("OPENAI_API_KEY")
         if not self.api_key:
             raise ValueError("OPENAI_API_KEY not found in environment variables")
@@ -72,11 +72,14 @@ class OpenAIAdapter(LLMAdapter):
         if model_name is None:
             model_name = os.getenv("OPENAI_MODEL", "gpt-5.2")
             
+        if username is None:
+            username = os.getenv("OPENAI_USERNAME", model_name)
+            
         self.prompt_id = os.getenv("OPENAI_PROMPT_ID")
             
         super().__init__(
             model_name=model_name,
-            username=model_name,
+            username=username,
             icon_emoji=":robot_face:"
         )
     
@@ -119,10 +122,16 @@ class GeminiAdapter(LLMAdapter):
     
     adapter_key = "gemini"
     
-    def __init__(self):
+    def __init__(self, model_name: str = None, username: str = None):
+        if model_name is None:
+            model_name = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
+            
+        if username is None:
+            username = os.getenv("GEMINI_USERNAME", "Gemini-3-Flash-Preview")
+            
         super().__init__(
-            model_name="gemini-3-flash-preview",
-            username="Gemini-3-Flash-Preview",
+            model_name=model_name,
+            username=username,
             icon_emoji=":gem:"
         )
         self.api_key = os.getenv("GOOGLE_API_KEY")
@@ -170,10 +179,16 @@ class GrokAdapter(LLMAdapter):
     
     adapter_key = "grok"
     
-    def __init__(self):
+    def __init__(self, model_name: str = None, username: str = None):
+        if model_name is None:
+            model_name = os.getenv("GROK_MODEL", "grok-3")
+            
+        if username is None:
+            username = os.getenv("GROK_USERNAME", "Grok-3")
+            
         super().__init__(
-            model_name="grok-3",  # Using latest Grok 3 model
-            username="Grok-3",
+            model_name=model_name,
+            username=username,
             icon_emoji=":lightning:"
         )
         self.api_key = os.getenv("XAI_API_KEY")
@@ -215,10 +230,16 @@ class DoubaoAdapter(LLMAdapter):
     
     adapter_key = "doubao"
     
-    def __init__(self):
+    def __init__(self, model_name: str = None, username: str = None):
+        if model_name is None:
+            model_name = os.getenv("DOUBAO_MODEL", "doubao-seed-1-8-251215")
+            
+        if username is None:
+            username = os.getenv("DOUBAO_USERNAME", "Doubao-Seed-1.8")
+            
         super().__init__(
-            model_name="doubao-seed-1-8-251215",  # Using Doubao Seed 1.8 model
-            username="Doubao-Seed-1.8",
+            model_name=model_name,
+            username=username,
             icon_emoji=":coffee:"
         )
         self.api_key = os.getenv("DOUBAO_API_KEY")
@@ -228,29 +249,26 @@ class DoubaoAdapter(LLMAdapter):
     async def generate_response(self, messages: List[Dict[str, str]]) -> str:
         """Generate response using ByteDance Doubao API"""
         try:
-            import aiohttp
+            from openai import AsyncOpenAI
             
-            # Doubao uses OpenAI-compatible API
-            url = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json"
-            }
-            payload = {
-                "model": self.model_name,
-                "messages": messages,
-                "temperature": 0.7,
-                "max_tokens": 1000
-            }
+            # Initialize AsyncOpenAI client for Doubao
+            client = AsyncOpenAI(
+                base_url="https://ark.cn-beijing.volces.com/api/v3/bots",
+                api_key=self.api_key
+            )
             
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, headers=headers, json=payload) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        return data["choices"][0]["message"]["content"]
-                    else:
-                        error_text = await response.text()
-                        return f"Error from {self.username}: HTTP {response.status} - {error_text}"
+            response = await client.chat.completions.create(
+                model=self.model_name,
+                messages=messages
+            )
+            
+            content = response.choices[0].message.content
+            
+            # Check for references if available (optional logging or appending)
+            if hasattr(response, "references"):
+                print(f"References from {self.username}: {response.references}")
+                
+            return content
         except Exception as e:
             return f"Error generating response from {self.username}: {str(e)}"
 

@@ -565,6 +565,27 @@ async def handle_followup_modal_submission(ack, body, client, view):
                 print(f"Failed to send error notification to Slack: {notify_error}")
 
 
+def extract_target_model(text: str) -> tuple[str, str]:
+    """
+    Extract target model from text if specified (e.g., "model=GPT-4o")
+    
+    Args:
+        text: Message text
+        
+    Returns:
+        Tuple of (cleaned_text, target_model_username)
+        target_model_username is None if not specified
+    """
+    # Match model=Name pattern, allowing for spaces in name if quoted, or simple word if not
+    # Simple version: model=Word
+    match = re.search(r'model=([^\s]+)', text)
+    if match:
+        target_model = match.group(1)
+        cleaned_text = text.replace(match.group(0), "").strip()
+        return cleaned_text, target_model
+    return text, None
+
+
 @app.event("app_mention")
 async def handle_app_mention(event, say):
     """
@@ -584,39 +605,89 @@ async def handle_app_mention(event, say):
         # Slack mentions look like "<@U12345> message text"
         text_without_mention = re.sub(r'<@[A-Z0-9]+>\s*', '', text, count=1).strip()
         
+        # Extract target model if specified
+        text_without_mention, target_model_username = extract_target_model(text_without_mention)
+        
         # Determine which mode to use for this request (compare by default)
         request_mode = determine_request_mode(text_without_mention)
         
+        # Check if we have a specific target model
+        target_adapter = None
+        if target_model_username:
+            username_mapping = llm_manager.get_username_mapping()
+            # Try exact match first
+            adapter_key = username_mapping.get(target_model_username)
+            
+            if not adapter_key:
+                # Try case-insensitive match
+                target_lower = target_model_username.lower()
+                for username, key in username_mapping.items():
+                    if username.lower() == target_lower:
+                        adapter_key = key
+                        break
+            
+            if adapter_key:
+                target_adapter = llm_manager.get_adapter(adapter_key)
+            else:
+                # If specified model not found, warn user and fall back to default behavior?
+                # Or stop? Let's stop and inform the user.
+                await say(
+                    text=f"找不到指定的模型 '{target_model_username}'。可用模型: {', '.join(username_mapping.keys())}",
+                    thread_ts=thread_ts or event_ts
+                )
+                return
+
         # Check if this is a new channel message or a thread reply
         if thread_ts is None:
             # This is a new message in the channel, start a new conversation
             print(f"New channel message, starting new conversation in thread {event_ts}")
             thread_ts = event_ts
             thread_messages = await fetch_thread_messages(channel, thread_ts)
-            # Handle with all models
-            await handle_request_by_mode(request_mode, channel, thread_ts, thread_messages)
+            
+            if target_adapter:
+                # Handle with only the specified model
+                await process_model_response(
+                    target_adapter,
+                    channel,
+                    thread_ts,
+                    thread_messages,
+                    "compare" # Use compare mode for single model to avoid debate overhead
+                )
+            else:
+                # Handle with all models
+                await handle_request_by_mode(request_mode, channel, thread_ts, thread_messages)
         else:
             # This is a reply in an existing thread
             print(f"Reply in existing thread {thread_ts}, filtering by models")
             thread_messages = await fetch_thread_messages(channel, thread_ts)
             
-            # Get models that have already participated in this thread
-            models_in_thread = context_filter.get_models_in_thread(thread_messages)
-            print(f"Models in thread: {models_in_thread}")
-            
-            if not models_in_thread:
-                # No AI models have responded yet, treat as new conversation
-                print("No models found in thread, starting new conversation")
-                await handle_request_by_mode(request_mode, channel, thread_ts, thread_messages)
-            else:
-                # Filter and forward to only the models that have participated
-                await handle_thread_reply(
+            if target_adapter:
+                # User explicitly requested a model in the thread
+                await process_model_response(
+                    target_adapter,
                     channel,
                     thread_ts,
                     thread_messages,
-                    models_in_thread,
-                    request_mode
+                    "compare"
                 )
+            else:
+                # Get models that have already participated in this thread
+                models_in_thread = context_filter.get_models_in_thread(thread_messages)
+                print(f"Models in thread: {models_in_thread}")
+                
+                if not models_in_thread:
+                    # No AI models have responded yet, treat as new conversation
+                    print("No models found in thread, starting new conversation")
+                    await handle_request_by_mode(request_mode, channel, thread_ts, thread_messages)
+                else:
+                    # Filter and forward to only the models that have participated
+                    await handle_thread_reply(
+                        channel,
+                        thread_ts,
+                        thread_messages,
+                        models_in_thread,
+                        request_mode
+                    )
     
     except Exception as e:
         print(f"Error in handle_app_mention: {e}")

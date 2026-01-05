@@ -39,6 +39,24 @@ class ContextFilter:
             # This is mainly for backward compatibility and testing
             self.model_usernames = {}
     
+    def clean_user_message(self, text: str) -> str:
+        """
+        Clean user message by removing bot mentions and command patterns
+        """
+        # Remove bot mention
+        text = self.MENTION_PATTERN.sub('', text).strip()
+        
+        # Remove model=... patterns
+        text = re.sub(r'model=[^\s]+', '', text).strip()
+        
+        # Remove mode=... patterns
+        text = re.sub(r'mode=(compare|debate)', '', text, flags=re.IGNORECASE).strip()
+        
+        # Clean up extra spaces
+        text = re.sub(r'\s+', ' ', text).strip()
+        
+        return text
+
     def remove_bot_mention(self, text: str) -> str:
         """
         Remove any user mention from the beginning of message text
@@ -136,8 +154,8 @@ class ContextFilter:
                         "content": text
                     })
             else:
-                # Include all user messages, but remove bot mentions
-                cleaned_text = self.remove_bot_mention(text)
+                # Include all user messages, but remove bot mentions and commands
+                cleaned_text = self.clean_user_message(text)
                 filtered_messages.append({
                     "role": "user",
                     "content": cleaned_text

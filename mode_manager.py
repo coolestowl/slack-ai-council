@@ -14,30 +14,26 @@ class ModeCommand:
     """Helper class for parsing inline mode specification"""
     
     @staticmethod
-    def extract_inline_mode(text: str) -> Dict[str, Any]:
+    def extract_mode(text: str) -> tuple[str, str]:
         """
-        Extract inline mode specification from message text
-        
-        Supports format: "mode=debate your question here" or "mode=compare your question"
+        Extract mode from text and return cleaned text.
         
         Args:
-            text: Message text from user
-        
+            text: Message text
+            
         Returns:
-            Dictionary with 'mode' and 'question' keys, or empty dict if no inline mode
+            Tuple of (cleaned_text, mode)
+            mode is "compare" (default) if not specified
         """
-        # Match "mode=compare" or "mode=debate" at the start of the message (case insensitive)
-        # Apply to original text to preserve case in question
-        pattern = r'^mode=(compare|debate)\s+(.*)'
-        match = re.match(pattern, text.strip(), re.IGNORECASE)
+        mode = "compare"
+        cleaned_text = text
+        
+        # Match mode=compare or mode=debate anywhere in the text
+        match = re.search(r'mode=(compare|debate)', cleaned_text, re.IGNORECASE)
         
         if match:
-            mode = match.group(1).lower()  # Normalize mode to lowercase
-            question = match.group(2)  # Preserve original case in question
+            mode = match.group(1).lower()
+            # Remove the mode specification
+            cleaned_text = cleaned_text.replace(match.group(0), "", 1).strip()
             
-            return {
-                "mode": mode,
-                "question": question
-            }
-        
-        return {}
+        return cleaned_text, mode

@@ -415,17 +415,23 @@ async def handle_followup_modal_submission(ack, body, client, view):
         # Get user info
         user_id = body["user"]["id"]
         
-        # Post the follow-up question to the thread (for visibility)
-        await client.chat_postMessage(
-            channel=channel,
-            thread_ts=thread_ts,
-            text=f"<@{user_id}> 追问: {question}"
-        )
-        
         # Get the adapter for this model
         try:
             adapter = llm_manager.get_adapter(model_key)
+            # Post the follow-up question to the thread (for visibility)
+            # Include the model name to show which model is being asked
+            await client.chat_postMessage(
+                channel=channel,
+                thread_ts=thread_ts,
+                text=f"<@{user_id}> 追问 {adapter.username}: {question}"
+            )
         except KeyError:
+            # Post the question without model name if adapter lookup fails
+            await client.chat_postMessage(
+                channel=channel,
+                thread_ts=thread_ts,
+                text=f"<@{user_id}> 追问: {question}"
+            )
             # Handle invalid or unknown model keys with a clear message
             await client.chat_postMessage(
                 channel=channel,

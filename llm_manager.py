@@ -319,4 +319,12 @@ class LLMManager:
             Generated response text
         """
         adapter = self.get_adapter(model_name)
+        
+        print(f"\n=== Sending messages to {model_name} ===")
+        for msg in messages:
+            role = msg.get('role', 'unknown')
+            content = msg.get('content', '(no content)')
+            print(f"[{role}]: {content}")
+        print("========================================\n")
+
         return await adapter.generate_response(messages)

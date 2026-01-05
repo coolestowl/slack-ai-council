@@ -83,6 +83,9 @@ class ContextFilter:
         """
         filtered_messages = []
         
+        # Get target model key from username
+        target_model_key = self.model_usernames.get(target_model_username)
+        
         for msg in messages:
             # Skip messages without text
             if "text" not in msg:
@@ -95,7 +98,37 @@ class ContextFilter:
             # Check if this is a bot message
             is_bot = msg.get("bot_id") or msg.get("subtype") == "bot_message"
             
-            if is_bot:
+            # Check for metadata indicating this is a user question echo
+            is_echo_user_question = False
+            if "metadata" in msg:
+                metadata = msg["metadata"]
+                if metadata.get("event_type") == "slack_ai_council_echo":
+                    payload = metadata.get("event_payload", {})
+                    if payload.get("is_user_question"):
+                        is_echo_user_question = True
+
+            if is_echo_user_question:
+                # Check if this question is intended for the target model
+                payload = msg["metadata"].get("event_payload", {})
+                msg_target_model_key = payload.get("target_model_key")
+                
+                # If target_model_key is present in metadata, it must match the current target model
+                # If not present (legacy messages), we might include it or exclude it. 
+                # Assuming we want to be strict if the key is present.
+                if msg_target_model_key and target_model_key and msg_target_model_key != target_model_key:
+                    continue
+
+                # Treat as user message
+                # Use the original question from metadata if available, otherwise use text
+                content = text
+                if "question" in payload:
+                    content = payload["question"]
+                
+                filtered_messages.append({
+                    "role": "user",
+                    "content": content
+                })
+            elif is_bot:
                 # Only include if it's from the target model
                 if username == target_model_username:
                     filtered_messages.append({

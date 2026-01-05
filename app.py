@@ -58,7 +58,8 @@ async def fetch_thread_messages(channel: str, thread_ts: str) -> List[Dict[str, 
         result = await app.client.conversations_replies(
             channel=channel,
             ts=thread_ts,
-            limit=100
+            limit=100,
+            include_all_metadata=True
         )
         return result.get("messages", [])
     except Exception as e:
@@ -158,6 +159,14 @@ async def process_model_response(
             system_prompt
         )
         
+        # Log messages being sent to the model
+        print(f"\n=== Sending messages to {adapter.username} ===")
+        for msg in messages:
+            role = msg.get('role', 'unknown')
+            content = msg.get('content', '(no content)')
+            print(f"[{role}]: {content}")
+        print("========================================\n")
+
         # Generate response
         response = await adapter.generate_response(messages)
         
@@ -495,14 +504,31 @@ async def handle_followup_modal_submission(ack, body, client, view):
             await client.chat_postMessage(
                 channel=channel,
                 thread_ts=thread_ts,
-                text=f"<@{user_id}> 追问 {adapter.username}: {question}"
+                text=f"<@{user_id}> 追问 {adapter.username}: {question}",
+                metadata={
+                    "event_type": "slack_ai_council_echo",
+                    "event_payload": {
+                        "is_user_question": True,
+                        "user_id": user_id,
+                        "question": question,
+                        "target_model_key": model_key
+                    }
+                }
             )
         except KeyError:
             # Post the question without model name if adapter lookup fails
             await client.chat_postMessage(
                 channel=channel,
                 thread_ts=thread_ts,
-                text=f"<@{user_id}> 追问: {question}"
+                text=f"<@{user_id}> 追问: {question}",
+                metadata={
+                    "event_type": "slack_ai_council_echo",
+                    "event_payload": {
+                        "is_user_question": True,
+                        "user_id": user_id,
+                        "question": question
+                    }
+                }
             )
             # Handle invalid or unknown model keys with a clear message
             await client.chat_postMessage(

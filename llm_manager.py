@@ -60,19 +60,25 @@ class LLMAdapter(ABC):
 
 
 class OpenAIAdapter(LLMAdapter):
-    """Adapter for OpenAI API (GPT-5.2)"""
+    """Adapter for OpenAI API"""
     
     adapter_key = "openai"
     
-    def __init__(self):
-        super().__init__(
-            model_name="gpt-5.2",  # Using latest GPT-5.2
-            username="GPT-5.2",
-            icon_emoji=":robot_face:"
-        )
+    def __init__(self, model_name: str = None):
         self.api_key = os.getenv("OPENAI_API_KEY")
         if not self.api_key:
             raise ValueError("OPENAI_API_KEY not found in environment variables")
+            
+        if model_name is None:
+            model_name = os.getenv("OPENAI_MODEL", "gpt-5.2")
+            
+        self.prompt_id = os.getenv("OPENAI_PROMPT_ID")
+            
+        super().__init__(
+            model_name=model_name,
+            username=model_name,
+            icon_emoji=":robot_face:"
+        )
     
     async def generate_response(self, messages: List[Dict[str, str]]) -> str:
         """Generate response using OpenAI API"""
@@ -80,14 +86,30 @@ class OpenAIAdapter(LLMAdapter):
             from openai import AsyncOpenAI
             client = AsyncOpenAI(api_key=self.api_key)
             
-            response = await client.chat.completions.create(
-                model=self.model_name,
-                messages=messages,
-                temperature=0.7,
-                max_completion_tokens=1000
-            )
+            kwargs = {
+                "model": self.model_name,
+                "input": messages,
+                "text": {
+                    "format": {
+                        "type": "text"
+                    }
+                },
+                "reasoning": {},
+                "max_output_tokens": 2048,
+                "store": False,
+                "include": [
+                    "reasoning.encrypted_content",
+                    "web_search_call.action.sources"
+                ]
+            }
             
-            return response.choices[0].message.content
+            if self.prompt_id:
+                kwargs["prompt"] = {"id": self.prompt_id, "version": "1"}
+            
+            response = await client.responses.create(**kwargs)
+            
+            target_obj = next(filter(lambda x: x.type == 'message', response.output), None)
+            return target_obj.content[0].text
         except Exception as e:
             return f"Error generating response from {self.username}: {str(e)}"
 

@@ -273,14 +273,31 @@ def create_default_system_prompt(model_name: str, mode: str = "compare") -> str:
         return (
             f"You are {model_name}, participating in a multi-AI comparison. "
             "Provide your perspective on the user's question. "
-            "Be concise, helpful, and show your unique approach to problem-solving."
+            "Be concise, helpful, and show your unique approach to problem-solving.\n\n"
+            "IMPORTANT: You are chatting in Slack. Please use Slack-compatible formatting:\n"
+            "- Use *bold* for bold (not **bold**)\n"
+            "- Use _italics_ for italics (not *italics*)\n"
+            "- Use <url|text> for links (not [text](url))\n"
+            "- Do not use # for headers, use *bold* instead"
         )
     elif mode == "debate":
         return (
             f"You are {model_name}, participating in an AI debate. "
             "You will see arguments from other AI models. "
             "Respond thoughtfully, point out strengths and weaknesses in arguments, "
-            "and build upon or challenge previous points constructively."
+            "and build upon or challenge previous points constructively.\n\n"
+            "IMPORTANT: You are chatting in Slack. Please use Slack-compatible formatting:\n"
+            "- Use *bold* for bold (not **bold**)\n"
+            "- Use _italics_ for italics (not *italics*)\n"
+            "- Use <url|text> for links (not [text](url))\n"
+            "- Do not use # for headers, use *bold* instead"
         )
     else:
-        return f"You are {model_name}, a helpful AI assistant."
+        return (
+            f"You are {model_name}, a helpful AI assistant.\n\n"
+            "IMPORTANT: You are chatting in Slack. Please use Slack-compatible formatting:\n"
+            "- Use *bold* for bold (not **bold**)\n"
+            "- Use _italics_ for italics (not *italics*)\n"
+            "- Use <url|text> for links (not [text](url))\n"
+            "- Do not use # for headers, use *bold* instead"
+        )

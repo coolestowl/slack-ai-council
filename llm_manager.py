@@ -142,36 +142,59 @@ class GeminiAdapter(LLMAdapter):
         """Generate response using Google Gemini API"""
         try:
             from google import genai
+            from google.genai import types
             
             # Create async client
             client = genai.Client(api_key=self.api_key)
             
             # Convert messages to Gemini format
-            prompt = self._convert_messages_to_prompt(messages)
+            contents = []
+            system_instruction = None
             
+            for msg in messages:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                
+                if role == "system":
+                    system_instruction = content
+                elif role == "user":
+                    contents.append(types.Content(
+                        role="user",
+                        parts=[types.Part.from_text(text=content)]
+                    ))
+                elif role == "assistant":
+                    contents.append(types.Content(
+                        role="model",
+                        parts=[types.Part.from_text(text=content)]
+                    ))
+            
+            # Configure generation with thinking and tools
+            tools = [
+                types.Tool(google_search=types.GoogleSearch())
+            ]
+            
+            config = types.GenerateContentConfig(
+                thinking_config=types.ThinkingConfig(
+                    thinking_level="HIGH",
+                ),
+                tools=tools,
+            )
+            
+            if system_instruction:
+                config.system_instruction = types.Content(
+                    parts=[types.Part.from_text(text=system_instruction)]
+                )
+
             # Generate response using async API
             response = await client.aio.models.generate_content(
                 model=self.model_name,
-                contents=prompt
+                contents=contents,
+                config=config
             )
             
             return response.text
         except Exception as e:
             return f"Error generating response from {self.username}: {str(e)}"
-    
-    def _convert_messages_to_prompt(self, messages: List[Dict[str, str]]) -> str:
-        """Convert chat messages to a single prompt for Gemini"""
-        prompt_parts = []
-        for msg in messages:
-            role = msg.get("role", "user")
-            content = msg.get("content", "")
-            if role == "system":
-                prompt_parts.append(f"System: {content}")
-            elif role == "user":
-                prompt_parts.append(f"User: {content}")
-            elif role == "assistant":
-                prompt_parts.append(f"Assistant: {content}")
-        return "\n\n".join(prompt_parts)
 
 
 class GrokAdapter(LLMAdapter):

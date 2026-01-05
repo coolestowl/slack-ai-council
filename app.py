@@ -314,6 +314,14 @@ async def handle_followup_button(ack, body, client):
             )
             return
         
+        # Truncate username for modal title to fit Slack's character limit
+        # Slack requires title text to be strictly less than 25 characters
+        # "追问 " is 3 characters, leaving 21 for the username
+        max_username_length = 21
+        display_username = adapter.username
+        if len(display_username) > max_username_length:
+            display_username = display_username[:max_username_length]
+        
         # Open modal for follow-up question
         await client.views_open(
             trigger_id=body["trigger_id"],
@@ -322,7 +330,7 @@ async def handle_followup_button(ack, body, client):
                 "callback_id": f"followup_modal_{model_key}",
                 "title": {
                     "type": "plain_text",
-                    "text": f"追问 {adapter.username}"
+                    "text": f"追问 {display_username}"
                 },
                 "submit": {
                     "type": "plain_text",

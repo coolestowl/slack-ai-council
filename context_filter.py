@@ -8,7 +8,7 @@ ensuring each model only sees:
 """
 
 import re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 
 class ContextFilter:
@@ -151,7 +151,7 @@ class ContextFilter:
         """
         return self.model_usernames.get(username, "unknown")
     
-    def get_model_from_metadata(self, message: Dict[str, Any]) -> str:
+    def get_model_from_metadata(self, message: Dict[str, Any]) -> Optional[str]:
         """
         Extract model identifier from message metadata
         

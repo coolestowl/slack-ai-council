@@ -110,13 +110,23 @@ async def send_model_response(
             }
         ]
         
+        # Add model information to metadata for filtering
+        metadata = {
+            "event_type": "ai_response",
+            "event_payload": {
+                "model_key": adapter.adapter_key,
+                "model_username": adapter.username
+            }
+        }
+        
         await app.client.chat_postMessage(
             channel=channel,
             thread_ts=thread_ts,
             text=response_text,  # Fallback text for notifications
             blocks=blocks,
             username=display_config["username"],
-            icon_emoji=display_config["icon_emoji"]
+            icon_emoji=display_config["icon_emoji"],
+            metadata=metadata
         )
     except Exception as e:
         print(f"Error sending message from {adapter.username}: {e}")
@@ -257,6 +267,68 @@ def determine_request_mode(text: str) -> str:
     else:
         # Default to compare mode
         return "compare"
+
+
+async def handle_thread_reply(
+    channel: str,
+    thread_ts: str,
+    thread_messages: List[Dict[str, Any]],
+    models_in_thread: set,
+    mode: str
+):
+    """
+    Handle reply in existing thread by forwarding to models that participated
+    
+    Args:
+        channel: Channel ID
+        thread_ts: Thread timestamp
+        thread_messages: List of thread messages
+        models_in_thread: Set of model keys that have participated in thread
+        mode: Operation mode ("compare" or "debate")
+    """
+    # Get adapters for models that have participated in the thread
+    adapters = []
+    for model_key in models_in_thread:
+        try:
+            adapter = llm_manager.get_adapter(model_key)
+            adapters.append(adapter)
+        except KeyError:
+            print(f"Warning: Model {model_key} not found in available adapters")
+    
+    if not adapters:
+        await app.client.chat_postMessage(
+            channel=channel,
+            thread_ts=thread_ts,
+            text="No AI models are available to respond."
+        )
+        return
+    
+    # Process based on mode
+    if mode == "compare":
+        # Process all participating models concurrently
+        tasks = [
+            process_model_response(
+                adapter,
+                channel,
+                thread_ts,
+                thread_messages,
+                "compare"
+            )
+            for adapter in adapters
+        ]
+        await asyncio.gather(*tasks, return_exceptions=True)
+    elif mode == "debate":
+        # Process models sequentially
+        for adapter in adapters:
+            # Fetch updated thread messages before each response
+            updated_messages = await fetch_thread_messages(channel, thread_ts)
+            await process_model_response(
+                adapter,
+                channel,
+                thread_ts,
+                updated_messages,
+                "debate"
+            )
 
 
 async def handle_request_by_mode(request_mode: str, channel: str, thread_ts: str, thread_messages: List[Dict[str, Any]]):
@@ -478,7 +550,8 @@ async def handle_app_mention(event, say):
     """
     try:
         channel = event["channel"]
-        thread_ts = event.get("thread_ts", event["ts"])
+        event_ts = event["ts"]
+        thread_ts = event.get("thread_ts")
         text = event.get("text", "")
         
         # Remove bot mention from text for parsing
@@ -488,11 +561,36 @@ async def handle_app_mention(event, say):
         # Determine which mode to use for this request (compare by default)
         request_mode = determine_request_mode(text_without_mention)
         
-        # Fetch thread messages
-        thread_messages = await fetch_thread_messages(channel, thread_ts)
-        
-        # Handle based on the determined mode
-        await handle_request_by_mode(request_mode, channel, thread_ts, thread_messages)
+        # Check if this is a new channel message or a thread reply
+        if thread_ts is None:
+            # This is a new message in the channel, start a new conversation
+            print(f"New channel message, starting new conversation in thread {event_ts}")
+            thread_ts = event_ts
+            thread_messages = await fetch_thread_messages(channel, thread_ts)
+            # Handle with all models
+            await handle_request_by_mode(request_mode, channel, thread_ts, thread_messages)
+        else:
+            # This is a reply in an existing thread
+            print(f"Reply in existing thread {thread_ts}, filtering by models")
+            thread_messages = await fetch_thread_messages(channel, thread_ts)
+            
+            # Get models that have already participated in this thread
+            models_in_thread = context_filter.get_models_in_thread(thread_messages)
+            print(f"Models in thread: {models_in_thread}")
+            
+            if not models_in_thread:
+                # No AI models have responded yet, treat as new conversation
+                print("No models found in thread, starting new conversation")
+                await handle_request_by_mode(request_mode, channel, thread_ts, thread_messages)
+            else:
+                # Filter and forward to only the models that have participated
+                await handle_thread_reply(
+                    channel,
+                    thread_ts,
+                    thread_messages,
+                    models_in_thread,
+                    request_mode
+                )
     
     except Exception as e:
         print(f"Error in handle_app_mention: {e}")

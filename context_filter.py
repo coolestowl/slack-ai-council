@@ -8,7 +8,7 @@ ensuring each model only sees:
 """
 
 import re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 
 class ContextFilter:
@@ -150,6 +150,47 @@ class ContextFilter:
             Model identifier (e.g., "openai", "gemini", "grok")
         """
         return self.model_usernames.get(username, "unknown")
+    
+    def get_model_from_metadata(self, message: Dict[str, Any]) -> Optional[str]:
+        """
+        Extract model identifier from message metadata
+        
+        Args:
+            message: Slack message object
+        
+        Returns:
+            Model identifier (e.g., "openai", "gemini", "grok") or None if not found
+        """
+        metadata = message.get("metadata", {})
+        if metadata.get("event_type") == "ai_response":
+            event_payload = metadata.get("event_payload", {})
+            return event_payload.get("model_key")
+        return None
+    
+    def get_models_in_thread(self, messages: List[Dict[str, Any]]) -> set:
+        """
+        Get set of model identifiers that have responded in the thread
+        
+        Args:
+            messages: List of Slack message objects from thread
+        
+        Returns:
+            Set of model identifiers that have responded
+        """
+        models = set()
+        for msg in messages:
+            # Try to get model from metadata first (preferred)
+            model_key = self.get_model_from_metadata(msg)
+            if model_key:
+                models.add(model_key)
+            # Fallback to username-based detection for backwards compatibility
+            elif self.is_bot_message(msg):
+                username = msg.get("username", "")
+                if username:
+                    model_key = self.get_model_from_username(username)
+                    if model_key != "unknown":
+                        models.add(model_key)
+        return models
     
     def build_prompt_with_context(
         self,

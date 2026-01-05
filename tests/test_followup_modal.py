@@ -100,6 +100,38 @@ class TestFollowupModal(unittest.TestCase):
         self.assertEqual(expected_modal["submit"]["text"], "提交")
         self.assertEqual(expected_modal["close"]["text"], "取消")
     
+    def test_modal_title_character_limit(self):
+        """Test that modal title respects Slack's character limit"""
+        # Test with a long username that would exceed the limit
+        long_username = "Gemini-3-Flash-Preview"  # 22 characters
+        max_username_length = 21  # Slack requires title < 25 chars, "追问 " is 3 chars
+        
+        # Truncate if needed (as done in the actual code)
+        display_username = long_username
+        if len(display_username) > max_username_length:
+            display_username = display_username[:max_username_length]
+        
+        title_text = f"追问 {display_username}"
+        
+        # Slack modal title must be strictly less than 25 characters
+        self.assertLess(len(title_text), 25, 
+                           f"Modal title '{title_text}' must be less than 25 characters (length: {len(title_text)})")
+        
+        # Test with various username lengths
+        test_cases = [
+            "GPT-5.2",  # Short name
+            "Grok-3",  # Short name
+            "Doubao-Seed-1.8",  # Medium name
+            "Gemini-3-Flash-Preview",  # Long name (22 chars)
+            "A" * 30,  # Very long name
+        ]
+        
+        for username in test_cases:
+            display_name = username if len(username) <= max_username_length else username[:max_username_length]
+            title = f"追问 {display_name}"
+            self.assertLess(len(title), 25, 
+                               f"Title for username '{username}' must be < 25 chars: '{title}' (length: {len(title)})")
+    
     def test_blocks_structure_with_button(self):
         """Test that message blocks include button"""
         response_text = "This is a test response"

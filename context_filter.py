@@ -81,7 +81,8 @@ class ContextFilter:
     def filter_messages_for_model(
         self,
         messages: List[Dict[str, Any]],
-        target_model_username: str
+        target_model_username: str,
+        mode: str = "compare"
     ) -> List[Dict[str, str]]:
         """
         Filter thread messages for a specific model.
@@ -89,12 +90,13 @@ class ContextFilter:
         Rules:
         - Include all user messages (non-bot messages)
         - Include only the target model's own previous responses
-        - Exclude other AI models' responses
+        - Exclude other AI models' responses (unless in debate mode)
         - Remove bot mentions from user messages
         
         Args:
             messages: List of Slack message objects from thread history
             target_model_username: Username of the target model (e.g., "GPT-4o")
+            mode: Operation mode ("compare" or "debate")
         
         Returns:
             List of filtered messages in OpenAI chat format
@@ -147,11 +149,22 @@ class ContextFilter:
                     "content": content
                 })
             elif is_bot:
-                # Only include if it's from the target model
+                # If it's the target model, include as assistant
                 if username == target_model_username:
+                    content = text
+                    # In debate mode, prefix own messages too as requested
+                    if mode == "debate":
+                        content = f"[{username}]: {text}"
+                        
                     filtered_messages.append({
                         "role": "assistant",
-                        "content": text
+                        "content": content
+                    })
+                # If debate mode, include other bots as user (with prefix)
+                elif mode == "debate":
+                    filtered_messages.append({
+                        "role": "user",
+                        "content": f"[{username}]: {text}"
                     })
             else:
                 # Include all user messages, but remove bot mentions and commands
@@ -247,7 +260,8 @@ class ContextFilter:
         self,
         thread_messages: List[Dict[str, Any]],
         target_model_username: str,
-        system_prompt: str = None
+        system_prompt: str = None,
+        mode: str = "compare"
     ) -> List[Dict[str, str]]:
         """
         Build a complete prompt with system message and filtered context
@@ -256,6 +270,7 @@ class ContextFilter:
             thread_messages: List of Slack message objects from thread
             target_model_username: Username of the target model
             system_prompt: Optional system prompt to prepend
+            mode: Operation mode ("compare" or "debate")
         
         Returns:
             Complete list of messages ready for AI API
@@ -270,19 +285,20 @@ class ContextFilter:
             })
         
         # Add filtered messages
-        filtered = self.filter_messages_for_model(thread_messages, target_model_username)
+        filtered = self.filter_messages_for_model(thread_messages, target_model_username, mode)
         messages.extend(filtered)
         
         return messages
 
 
-def create_default_system_prompt(model_name: str, mode: str = "compare") -> str:
+def create_default_system_prompt(model_name: str, mode: str = "compare", role: str = None) -> str:
     """
     Create a default system prompt based on mode
     
     Args:
         model_name: Name of the model
         mode: Operation mode ("compare" or "debate")
+        role: Optional role for debate mode ("Pro" or "Con")
     
     Returns:
         System prompt string
@@ -299,11 +315,19 @@ def create_default_system_prompt(model_name: str, mode: str = "compare") -> str:
             "- Do not use # for headers, use *bold* instead"
         )
     elif mode == "debate":
+        role_instruction = ""
+        if role == "Judge":
+            role_instruction = "You are the Judge. Summarize the debate, evaluating the arguments from both sides. "
+        elif role:
+            role_instruction = f"You are arguing for the {role} side. "
+        
         return (
-            f"You are {model_name}, participating in an AI debate. "
+            f"You are {model_name}, participating in an AI debate. {role_instruction}"
             "You will see arguments from other AI models. "
             "Respond thoughtfully, point out strengths and weaknesses in arguments, "
-            "and build upon or challenge previous points constructively.\n\n"
+            "and build upon or challenge previous points constructively. "
+            "Keep your response concise and focused on key points, strictly under 100 words. "
+            "Respond in the same language as the original user question.\n\n"
             "IMPORTANT: You are chatting in Slack. Please use Slack-compatible formatting:\n"
             "- Use *bold* for bold (not **bold**)\n"
             "- Use _italics_ for italics (not *italics*)\n"

@@ -9,6 +9,7 @@ multi-perspective responses in Slack threads.
 import os
 import re
 import asyncio
+import random
 from typing import List, Dict, Any
 from dotenv import load_dotenv
 from slack_bolt.async_app import AsyncApp
@@ -27,6 +28,10 @@ app = AsyncApp(token=os.getenv("SLACK_BOT_TOKEN"))
 # Initialize managers
 llm_manager = LLMManager()
 context_filter = None  # Will be initialized after getting bot user ID
+
+# Global cache for event deduplication
+processed_events = set()
+
 
 
 async def initialize_context_filter():
@@ -67,6 +72,37 @@ async def fetch_thread_messages(channel: str, thread_ts: str) -> List[Dict[str, 
         return []
 
 
+def split_text(text: str, limit: int = 2500) -> List[str]:
+    """
+    Split text into chunks of maximum limit characters.
+    Tries to split at newlines or spaces to avoid breaking words.
+    """
+    chunks = []
+    while len(text) > limit:
+        # Find a suitable split point (newline or space)
+        # Look for the last newline within the limit
+        split_index = text.rfind('\n', 0, limit)
+        
+        if split_index == -1:
+            # If no newline, look for the last space
+            split_index = text.rfind(' ', 0, limit)
+        
+        if split_index == -1:
+            # No suitable split point, force split at limit
+            split_index = limit
+            
+        chunks.append(text[:split_index])
+        # Remove the split character (newline or space) if it was used
+        if split_index < len(text) and text[split_index] in ['\n', ' ']:
+            text = text[split_index+1:]
+        else:
+            text = text[split_index:]
+        
+    if text:
+        chunks.append(text)
+    return chunks
+
+
 async def send_model_response(
     channel: str,
     thread_ts: str,
@@ -85,50 +121,59 @@ async def send_model_response(
     try:
         display_config = adapter.get_display_config()
         
-        # Create blocks with response text and follow-up button
-        blocks = [
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": response_text
-                }
-            },
-            {
-                "type": "actions",
-                "elements": [
-                    {
-                        "type": "button",
-                        "text": {
-                            "type": "plain_text",
-                            "text": f"追问 {display_config['username']}",
-                            "emoji": True
-                        },
-                        "action_id": f"followup_{adapter.adapter_key}",
-                        "value": f"{channel}|{thread_ts}"
+        # Split text if it's too long for a single block
+        chunks = split_text(response_text)
+        
+        for i, chunk in enumerate(chunks):
+            is_last = (i == len(chunks) - 1)
+            
+            # Create blocks with response text
+            blocks = [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": chunk
                     }
-                ]
+                }
+            ]
+            
+            # Add follow-up button only to the last chunk
+            if is_last:
+                blocks.append({
+                    "type": "actions",
+                    "elements": [
+                        {
+                            "type": "button",
+                            "text": {
+                                "type": "plain_text",
+                                "text": f"追问 {display_config['username']}",
+                                "emoji": True
+                            },
+                            "action_id": f"followup_{adapter.adapter_key}",
+                            "value": f"{channel}|{thread_ts}"
+                        }
+                    ]
+                })
+            
+            # Add model information to metadata for filtering
+            metadata = {
+                "event_type": "ai_response",
+                "event_payload": {
+                    "model_key": adapter.adapter_key,
+                    "model_username": adapter.username
+                }
             }
-        ]
-        
-        # Add model information to metadata for filtering
-        metadata = {
-            "event_type": "ai_response",
-            "event_payload": {
-                "model_key": adapter.adapter_key,
-                "model_username": adapter.username
-            }
-        }
-        
-        await app.client.chat_postMessage(
-            channel=channel,
-            thread_ts=thread_ts,
-            text=response_text,  # Fallback text for notifications
-            blocks=blocks,
-            username=display_config["username"],
-            icon_emoji=display_config["icon_emoji"],
-            metadata=metadata
-        )
+            
+            await app.client.chat_postMessage(
+                channel=channel,
+                thread_ts=thread_ts,
+                text=chunk,  # Fallback text for notifications
+                blocks=blocks,
+                username=display_config["username"],
+                icon_emoji=display_config["icon_emoji"],
+                metadata=metadata
+            )
     except Exception as e:
         print(f"Error sending message from {adapter.username}: {e}")
 
@@ -138,7 +183,8 @@ async def process_model_response(
     channel: str,
     thread_ts: str,
     thread_messages: List[Dict[str, Any]],
-    mode: str
+    mode: str,
+    role: str = None
 ):
     """
     Process and send response from a single AI model
@@ -149,14 +195,16 @@ async def process_model_response(
         thread_ts: Thread timestamp
         thread_messages: List of thread messages
         mode: Current operation mode
+        role: Optional role for debate mode
     """
     try:
         # Build prompt with filtered context
-        system_prompt = create_default_system_prompt(adapter.username, mode)
+        system_prompt = create_default_system_prompt(adapter.username, mode, role)
         messages = context_filter.build_prompt_with_context(
             thread_messages,
             adapter.username,
-            system_prompt
+            system_prompt,
+            mode
         )
         
         # Log messages being sent to the model
@@ -244,9 +292,60 @@ async def handle_debate_mode(
             text="No AI models are configured. Please check your API keys."
         )
         return
+
+    if len(adapters) < 2:
+        await app.client.chat_postMessage(
+            channel=channel,
+            thread_ts=thread_ts,
+            text="Debate mode requires at least 2 AI models."
+        )
+        return
     
-    # Process models sequentially
-    for adapter in adapters:
+    # Shuffle adapters for random order
+    random.shuffle(adapters)
+    
+    # Limit to 5 models if more are present
+    if len(adapters) > 5:
+        adapters = adapters[:5]
+        
+    count = len(adapters)
+    debate_plan = []
+    
+    if count == 2:
+        # A(Pro), B(Con), A(Judge), B(Judge)
+        debate_plan = [
+            (adapters[0], "Pro"),
+            (adapters[1], "Con"),
+            (adapters[0], "Judge"),
+            (adapters[1], "Judge")
+        ]
+    elif count == 3:
+        # A(Pro), B(Con), C(Judge)
+        debate_plan = [
+            (adapters[0], "Pro"),
+            (adapters[1], "Con"),
+            (adapters[2], "Judge")
+        ]
+    elif count == 4:
+        # A(Pro), B(Con), C(Judge), D(Judge)
+        debate_plan = [
+            (adapters[0], "Pro"),
+            (adapters[1], "Con"),
+            (adapters[2], "Judge"),
+            (adapters[3], "Judge")
+        ]
+    elif count == 5:
+        # A(Pro), B(Pro), C(Con), D(Con), E(Judge)
+        debate_plan = [
+            (adapters[0], "Pro"),
+            (adapters[1], "Pro"),
+            (adapters[2], "Con"),
+            (adapters[3], "Con"),
+            (adapters[4], "Judge")
+        ]
+    
+    # Process models sequentially according to plan
+    for adapter, role in debate_plan:
         # Fetch updated thread messages before each response
         updated_messages = await fetch_thread_messages(channel, thread_ts)
         
@@ -255,7 +354,8 @@ async def handle_debate_mode(
             channel,
             thread_ts,
             updated_messages,
-            "debate"
+            "debate",
+            role
         )
 
 
@@ -311,17 +411,13 @@ async def handle_thread_reply(
         ]
         await asyncio.gather(*tasks, return_exceptions=True)
     elif mode == "debate":
-        # Process models sequentially
-        for adapter in adapters:
-            # Fetch updated thread messages before each response
-            updated_messages = await fetch_thread_messages(channel, thread_ts)
-            await process_model_response(
-                adapter,
-                channel,
-                thread_ts,
-                updated_messages,
-                "debate"
-            )
+        # Use the standardized debate handler
+        await handle_debate_mode(
+            channel,
+            thread_ts,
+            thread_messages,
+            specific_adapters=adapters
+        )
 
 
 async def handle_request_by_mode(
@@ -600,6 +696,18 @@ async def handle_app_mention(event, say):
     try:
         channel = event["channel"]
         event_ts = event["ts"]
+        
+        # Deduplication check
+        event_key = f"{channel}:{event_ts}"
+        if event_key in processed_events:
+            print(f"Skipping duplicate event: {event_key}")
+            return
+        
+        processed_events.add(event_key)
+        # Simple cleanup to prevent memory leak
+        if len(processed_events) > 1000:
+            processed_events.pop()
+            
         thread_ts = event.get("thread_ts")
         text = event.get("text", "")
         

@@ -80,7 +80,7 @@ class OpenAIAdapter(LLMAdapter):
         super().__init__(
             model_name=model_name,
             username=username,
-            icon_emoji=":robot_face:"
+            icon_emoji=":ai-chatgpt:"
         )
     
     async def generate_response(self, messages: List[Dict[str, str]]) -> str:
@@ -132,7 +132,7 @@ class GeminiAdapter(LLMAdapter):
         super().__init__(
             model_name=model_name,
             username=username,
-            icon_emoji=":gem:"
+            icon_emoji=":ai-gemini:"
         )
         self.api_key = os.getenv("GOOGLE_API_KEY")
         if not self.api_key:
@@ -212,7 +212,7 @@ class GrokAdapter(LLMAdapter):
         super().__init__(
             model_name=model_name,
             username=username,
-            icon_emoji=":lightning:"
+            icon_emoji=":ai-grok:"
         )
         self.api_key = os.getenv("XAI_API_KEY")
         if not self.api_key:
@@ -221,29 +221,47 @@ class GrokAdapter(LLMAdapter):
     async def generate_response(self, messages: List[Dict[str, str]]) -> str:
         """Generate response using X.AI Grok API"""
         try:
-            import aiohttp
+            from xai_sdk import AsyncClient
+            from xai_sdk.chat import user, system, assistant
+            from xai_sdk.tools import web_search
             
-            # X.AI uses OpenAI-compatible API
-            url = "https://api.x.ai/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json"
-            }
-            payload = {
-                "model": self.model_name,
-                "messages": messages,
-                "temperature": 0.7,
-                "max_tokens": 1000
-            }
+            client = AsyncClient(api_key=self.api_key)
             
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, headers=headers, json=payload) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        return data["choices"][0]["message"]["content"]
-                    else:
-                        error_text = await response.text()
-                        return f"Error from {self.username}: HTTP {response.status} - {error_text}"
+            # Create chat with web search tool and inline citations
+            chat = client.chat.create(
+                model=self.model_name,
+                tools=[web_search()],
+                include=["inline_citations"],
+            )
+            
+            # Add messages to chat
+            for msg in messages:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                
+                if role == "system":
+                    chat.append(system(content))
+                elif role == "user":
+                    chat.append(user(content))
+                elif role == "assistant":
+                    chat.append(assistant(content))
+            
+            # Generate response using sample (non-streaming)
+            response = await chat.sample()
+            
+            content = response.content
+            
+            # Log inline citations if available
+            if hasattr(response, "inline_citations"):
+                print(f"Inline citations from {self.username}:")
+                for citation in response.inline_citations:
+                    if hasattr(citation, "HasField") and citation.HasField("web_citation"):
+                        print(f"[{citation.id}] {citation.web_citation.url}")
+                    elif hasattr(citation, "web_citation"):
+                         print(f"[{citation.id}] {citation.web_citation.url}")
+            
+            return content
+            
         except Exception as e:
             return f"Error generating response from {self.username}: {str(e)}"
 

@@ -1,5 +1,9 @@
 # Slack AI Council Bot - Agent Documentation
 
+## 0. 本地私有上下文 (.ai_local)
+
+若当前目录下存在 `./.ai_local/` 文件夹，必须优先检索其中的内容。特别是若存在 `./.ai_local/AGENTS.md`，请将其视为本指令集的**高优先级补充或覆盖版本**。在执行任务时，请结合本地私有上下文进行个性化响应，同时严禁在输出中泄露这些私有路径或文件内容。若文件夹不存在，请按常规模式运行。
+
 ## 1. 项目概述 (Project Overview)
 
 Slack AI Council Bot 是一个集成多种 AI 模型（OpenAI GPT-5.2, Google Gemini 3 Flash Preview, X.AI Grok 3, ByteDance Doubao Seed 1.8）的 Slack 机器人。它旨在通过在单个 Slack 线程中提供多视角的回答，帮助用户获得更全面的信息。
